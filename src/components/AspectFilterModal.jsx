@@ -12,10 +12,18 @@
 import React, { useState } from 'react';
 import { X, Filter, Sparkles, AlertCircle } from 'lucide-react';
 
-const AspectFilterModal = ({ isOpen, onClose, onApplyFilter, isLoading }) => {
+const AspectFilterModal = ({ isOpen, onClose, onApplyFilter, isLoading, extractedAspects = [] }) => {
   const [aspects, setAspects] = useState('');
   const [category, setCategory] = useState('all');
   const [error, setError] = useState('');
+
+  // Update aspects input when extractedAspects changes
+  React.useEffect(() => {
+    if (extractedAspects.length > 0 && isOpen) {
+      // Pre-fill with extracted aspects from search query
+      setAspects(extractedAspects.join(', '));
+    }
+  }, [extractedAspects, isOpen]);
 
   // Predefined aspect suggestions
   const aspectSuggestions = [
@@ -104,6 +112,27 @@ const AspectFilterModal = ({ isOpen, onClose, onApplyFilter, isLoading }) => {
         </div>
 
         <form onSubmit={handleSubmit} className="modal-body">
+          {/* Show message if aspects were detected from search query */}
+          {extractedAspects.length > 0 && (
+            <div className="info-banner" style={{
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              color: 'white',
+              padding: '12px 16px',
+              borderRadius: '8px',
+              marginBottom: '20px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <Sparkles size={18} />
+              <span>
+                <strong>Auto-detected aspects from your search:</strong> {extractedAspects.join(', ')}
+                <br />
+                <small style={{ opacity: 0.9 }}>You can add more aspects below to analyze them together!</small>
+              </span>
+            </div>
+          )}
+
           {/* Aspects Input */}
           <div className="form-group">
             <label htmlFor="aspects" className="form-label">
@@ -120,7 +149,7 @@ const AspectFilterModal = ({ isOpen, onClose, onApplyFilter, isLoading }) => {
               disabled={isLoading}
             />
             <p className="form-help">
-              Enter aspects separated by commas. These are the features you want to analyze sentiment for.
+              Enter aspects separated by commas. {extractedAspects.length > 0 ? 'Add more aspects to combine with auto-detected ones.' : 'These are the features you want to analyze sentiment for.'}
             </p>
           </div>
 

@@ -18,9 +18,12 @@ This project now includes an advanced **Aspect-Based Sentiment Filter** that ana
 
 - ✨ **AI-Powered Analysis**: Uses Hugging Face Gradio API (`sathvik1223/Aspect_based_sentiment_analysis`)
 - 🎯 **Smart Ranking**: Products ranked by overall sentiment score
-- 💾 **Caching**: Results cached in localStorage for 24 hours for faster subsequent queries
+- � **Automatic Aspect Detection**: Extracts aspects from your search query automatically
+- 🤝 **Aspect Merging**: Combines auto-detected aspects with manually added ones
+- �💾 **Caching**: Results cached in localStorage for 24 hours for faster subsequent queries
 - 🎨 **Beautiful UI**: Animated sentiment badges (positive/negative/neutral)
 - 📱 **Responsive**: Works seamlessly on mobile and desktop
+- 📊 **Review-by-Review Breakdown**: See sentiment for each individual review
 
 ### Technical Implementation
 

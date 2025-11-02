@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, ShoppingBag, Sparkles, TrendingUp, Star, ArrowRight, Zap, Filter, Heart, ExternalLink } from 'lucide-react';
+import { Search, ShoppingBag, Sparkles, TrendingUp, Star, ArrowRight, Zap, Filter, Heart, ExternalLink, Mic, MicOff } from 'lucide-react';
 import AspectFilterModal from './components/AspectFilterModal';
 import { SentimentBadgeList } from './components/SentimentBadge';
 import ReviewAnalysisDetails from './components/ReviewAnalysisDetails';
 import { analyzeProductSentiment, calculateSentimentScore } from './services/aspectSentimentService';
+import { speechToText } from './services/speechToTextService';
 
 const ProductRecommendationApp = () => {
   const [prompt, setPrompt] = useState('');
@@ -20,7 +21,13 @@ const ProductRecommendationApp = () => {
   const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [currentAspects, setCurrentAspects] = useState([]);
+  const [extractedAspects, setExtractedAspects] = useState([]); // Aspects from search query
   const [analysisError, setAnalysisError] = useState(null);
+
+  // Speech-to-Text States
+  const [isRecording, setIsRecording] = useState(false);
+  const [isSpeechProcessing, setIsSpeechProcessing] = useState(false);
+  const [speechError, setSpeechError] = useState(null);
 
   const fullText = "AI-Powered Product Discovery";
   
@@ -163,6 +170,69 @@ const ProductRecommendationApp = () => {
     window.location.hash = '#/';
   };
 
+  // Handle voice input (speech-to-text)
+  const handleVoiceInput = async () => {
+    if (isRecording || isSpeechProcessing) {
+      console.log('[Voice Input] Already recording or processing, ignoring...');
+      return;
+    }
+
+    try {
+      setSpeechError(null);
+      setIsRecording(true);
+      
+      console.log('[Voice Input] ========================================');
+      console.log('[Voice Input] Starting voice recording workflow...');
+      console.log('[Voice Input] ========================================');
+      
+      // Record and transcribe audio (max 10 seconds)
+      const transcribedText = await speechToText(10);
+      
+      console.log('[Voice Input] ========================================');
+      console.log('[Voice Input] SUCCESS! Transcribed text:', transcribedText);
+      console.log('[Voice Input] ========================================');
+      
+      setIsRecording(false);
+      setIsSpeechProcessing(true);
+      
+      // Set the transcribed text to the search input
+      setPrompt(transcribedText);
+      
+      // Small delay to show processing state
+      setTimeout(() => {
+        setIsSpeechProcessing(false);
+        console.log('[Voice Input] Text successfully added to search box!');
+      }, 500);
+      
+    } catch (error) {
+      console.error('[Voice Input] ========================================');
+      console.error('[Voice Input] ERROR:', error);
+      console.error('[Voice Input] Error message:', error.message);
+      console.error('[Voice Input] Error stack:', error.stack);
+      console.error('[Voice Input] ========================================');
+      
+      setIsRecording(false);
+      setIsSpeechProcessing(false);
+      
+      // Set user-friendly error message
+      let errorMessage = error.message;
+      if (errorMessage.includes('denied')) {
+        errorMessage = 'Microphone access denied. Please allow microphone permissions and try again.';
+      } else if (errorMessage.includes('not supported')) {
+        errorMessage = 'Your browser does not support audio recording. Please use Chrome, Firefox, or Edge.';
+      } else if (errorMessage.includes('No audio data')) {
+        errorMessage = 'No audio was recorded. Please speak louder and try again.';
+      } else if (errorMessage.includes('No transcription')) {
+        errorMessage = 'Could not transcribe audio. Please speak clearly and try again.';
+      }
+      
+      setSpeechError(errorMessage);
+      
+      // Clear error after 7 seconds
+      setTimeout(() => setSpeechError(null), 7000);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!prompt.trim()) return;
@@ -170,16 +240,19 @@ const ProductRecommendationApp = () => {
     setIsLoading(true);
 
     // Extract aspects from user's search query
-    const extractedAspects = extractAspectsFromPrompt(prompt);
+    const aspectsFromQuery = extractAspectsFromPrompt(prompt);
     
     console.log('[Search] User query:', prompt);
-    console.log('[Search] Extracted aspects:', extractedAspects);
+    console.log('[Search] Extracted aspects from query:', aspectsFromQuery);
 
-    if (extractedAspects.length > 0) {
+    // Store extracted aspects for later merging with manual filter
+    setExtractedAspects(aspectsFromQuery);
+
+    if (aspectsFromQuery.length > 0) {
       // User mentioned specific aspects - trigger ABSA analysis
       console.log('[Search] Triggering automatic ABSA analysis with extracted aspects');
       await handleApplyFilter({
-        aspects: extractedAspects,
+        aspects: aspectsFromQuery,
         category: 'all'
       });
     } else {
@@ -224,14 +297,21 @@ const ProductRecommendationApp = () => {
 
   // Handle ABSA Filter Application
   const handleApplyFilter = async (filterData) => {
-    const { aspects, category } = filterData;
+    const { aspects: manualAspects, category } = filterData;
+    
+    // Merge aspects from search query and manual filter (remove duplicates)
+    const allAspects = [...new Set([...extractedAspects, ...manualAspects])];
+    
+    console.log('[ABSA] Aspects from search query:', extractedAspects);
+    console.log('[ABSA] Aspects from manual filter:', manualAspects);
+    console.log('[ABSA] Combined aspects (merged):', allAspects);
     
     setIsAnalyzing(true);
     setAnalysisError(null);
-    setCurrentAspects(aspects);
+    setCurrentAspects(allAspects); // Use merged aspects
     
     try {
-      console.log('[ABSA] Starting analysis for aspects:', aspects);
+      console.log('[ABSA] Starting analysis for all aspects:', allAspects);
       
       // Filter products by category if specified
       let productsToAnalyze = products;
@@ -251,8 +331,8 @@ const ProductRecommendationApp = () => {
           console.log(`[ABSA] Analyzing product ${index + 1}/${productsToAnalyze.length}: ${product.product_name}`);
           console.log(`[ABSA] Product has ${product.reviews.length} reviews`);
           
-          // Analyze product sentiment - this will iterate through all reviews
-          const result = await analyzeProductSentiment(product, aspects);
+          // Analyze product sentiment with ALL merged aspects
+          const result = await analyzeProductSentiment(product, allAspects);
           
           console.log(`[ABSA] Product analysis complete:`, {
             name: product.product_name,
@@ -262,8 +342,8 @@ const ProductRecommendationApp = () => {
             scores: result.scores
           });
           
-          // Calculate overall sentiment score for ranking
-          const sentimentScore = calculateSentimentScore(result.sentiments);
+          // Calculate overall sentiment score for ranking (pass aspectScores for better accuracy)
+          const sentimentScore = calculateSentimentScore(result.sentiments, result.scores);
           
           analyzedProducts.push({
             ...product,
@@ -311,6 +391,7 @@ const ProductRecommendationApp = () => {
   const handleResetFilters = () => {
     setFilteredProducts(products);
     setCurrentAspects([]);
+    setExtractedAspects([]);
     setAnalysisError(null);
   };
 
@@ -444,10 +525,11 @@ const ProductRecommendationApp = () => {
                 onFocus={() => setSearchFocused(true)}
                 onBlur={() => setSearchFocused(false)}
                 placeholder="Describe the product you're looking for..."
-                disabled={isLoading}
+                disabled={isLoading || isRecording || isSpeechProcessing}
                 onKeyPress={(e) => e.key === 'Enter' && handleSubmit(e)}
                 className="search-input"
               />
+
               <button
                 onClick={handleSubmit}
                 disabled={isLoading || !prompt.trim()}
@@ -467,7 +549,88 @@ const ProductRecommendationApp = () => {
                   </>
                 )}
               </button>
+              
+              {/* Voice Input Button - After Find Products */}
+              <button
+                onClick={handleVoiceInput}
+                disabled={isLoading || isRecording || isSpeechProcessing}
+                className="voice-input-btn magnetic-btn"
+                title={isRecording ? "Recording..." : isSpeechProcessing ? "Processing..." : "Voice Search"}
+                style={{
+                  marginLeft: '12px',
+                  padding: '0.75rem 1.5rem',
+                  background: isRecording 
+                    ? 'linear-gradient(135deg, #ef4444, #dc2626)' 
+                    : isSpeechProcessing 
+                    ? 'linear-gradient(135deg, #facc15, #eab308)'
+                    : 'linear-gradient(135deg, #8b5cf6, #6d28d9)',
+                  border: 'none',
+                  borderRadius: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  cursor: isRecording || isSpeechProcessing ? 'not-allowed' : 'pointer',
+                  color: 'white',
+                  fontWeight: 600,
+                  fontSize: '0.95rem',
+                  transition: 'all 0.3s ease',
+                  boxShadow: isRecording 
+                    ? '0 0 25px rgba(239, 68, 68, 0.6)' 
+                    : '0 8px 16px rgba(139, 92, 246, 0.3)',
+                  animation: isRecording ? 'pulse 1.5s infinite' : 'none',
+                  position: 'relative',
+                  overflow: 'hidden'
+                }}
+              >
+                {isRecording ? (
+                  <>
+                    <MicOff size={20} />
+                    <span>Recording...</span>
+                  </>
+                ) : isSpeechProcessing ? (
+                  <>
+                    <div className="advanced-spinner" style={{ width: '20px', height: '20px' }}>
+                      <div className="spinner-ring" style={{ width: '20px', height: '20px', borderWidth: '2px' }}></div>
+                    </div>
+                    <span>Processing...</span>
+                  </>
+                ) : (
+                  <>
+                    <Mic size={20} />
+                    <span>Voice Search</span>
+                  </>
+                )}
+                <div className="button-ripple"></div>
+              </button>
             </div>
+            
+            {/* Voice Input Status Messages */}
+            {(isRecording || isSpeechProcessing || speechError) && (
+              <div style={{
+                marginTop: '12px',
+                textAlign: 'center',
+                fontSize: '0.875rem',
+                color: speechError ? '#ef4444' : isRecording ? '#8b5cf6' : '#facc15',
+                fontWeight: 500,
+                padding: '8px 16px',
+                background: speechError 
+                  ? 'rgba(239, 68, 68, 0.1)' 
+                  : isRecording 
+                  ? 'rgba(139, 92, 246, 0.1)'
+                  : 'rgba(250, 204, 21, 0.1)',
+                borderRadius: '8px',
+                border: `1px solid ${speechError ? '#ef4444' : isRecording ? '#8b5cf6' : '#facc15'}33`
+              }}>
+                {speechError ? (
+                  <span>❌ {speechError}</span>
+                ) : isRecording ? (
+                  <span>🎤 Listening... Speak now! (Auto-stops in 10 seconds)</span>
+                ) : isSpeechProcessing ? (
+                  <span>⏳ Processing your speech... Please wait</span>
+                ) : null}
+              </div>
+            )}
+            
             <div className="search-glow"></div>
           </div>
 
@@ -512,24 +675,51 @@ const ProductRecommendationApp = () => {
                 gap: '0.5rem',
                 justifyContent: 'center'
               }}>
-                {currentAspects.map((aspect, index) => (
-                  <span
-                    key={index}
-                    style={{
-                      padding: '0.375rem 0.75rem',
-                      background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.2), rgba(16, 185, 129, 0.2))',
-                      border: '1px solid rgba(168, 85, 247, 0.4)',
-                      borderRadius: '50px',
-                      fontSize: '0.875rem',
-                      color: '#c084fc',
-                      fontWeight: 500,
-                      textTransform: 'capitalize'
-                    }}
-                  >
-                    {aspect}
-                  </span>
-                ))}
+                {currentAspects.map((aspect, index) => {
+                  const isFromQuery = extractedAspects.includes(aspect);
+                  return (
+                    <span
+                      key={index}
+                      style={{
+                        padding: '0.375rem 0.75rem',
+                        background: isFromQuery 
+                          ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(147, 51, 234, 0.2))'
+                          : 'linear-gradient(135deg, rgba(168, 85, 247, 0.2), rgba(16, 185, 129, 0.2))',
+                        border: isFromQuery 
+                          ? '1px solid rgba(59, 130, 246, 0.5)'
+                          : '1px solid rgba(168, 85, 247, 0.4)',
+                        borderRadius: '50px',
+                        fontSize: '0.875rem',
+                        color: isFromQuery ? '#60a5fa' : '#c084fc',
+                        fontWeight: 500,
+                        textTransform: 'capitalize',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      {isFromQuery && <span style={{ fontSize: '10px' }}>🔍</span>}
+                      {aspect}
+                    </span>
+                  );
+                })}
               </div>
+              {extractedAspects.length > 0 && (
+                <div style={{
+                  marginTop: '0.75rem',
+                  fontSize: '0.75rem',
+                  color: '#9ca3af',
+                  display: 'flex',
+                  justifyContent: 'center',
+                  gap: '1rem',
+                  flexWrap: 'wrap'
+                }}>
+                  <span style={{ color: '#60a5fa' }}>🔍 From search query</span>
+                  {currentAspects.length > extractedAspects.length && (
+                    <span style={{ color: '#c084fc' }}>✨ Added manually</span>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -620,12 +810,54 @@ const ProductRecommendationApp = () => {
                       <SentimentBadgeList sentiments={product.sentiments} />
                       {product.sentimentScore !== undefined && (
                         <div style={{
-                          fontSize: '0.75rem',
-                          color: '#10b981',
-                          marginTop: '0.5rem',
-                          fontWeight: 600
+                          marginTop: '0.75rem',
+                          padding: '0.75rem',
+                          background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(52, 211, 153, 0.15))',
+                          border: '1px solid rgba(16, 185, 129, 0.3)',
+                          borderRadius: '8px',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center'
                         }}>
-                          Overall Sentiment Score: {(product.sentimentScore * 100).toFixed(1)}%
+                          <div>
+                            <div style={{
+                              fontSize: '0.7rem',
+                              color: '#9ca3af',
+                              marginBottom: '0.25rem',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.05em'
+                            }}>
+                              Overall Score
+                            </div>
+                            <div style={{
+                              fontSize: '1.5rem',
+                              color: product.sentimentScore >= 75 ? '#10b981' : 
+                                     product.sentimentScore >= 50 ? '#facc15' : '#ef4444',
+                              fontWeight: 700,
+                              display: 'flex',
+                              alignItems: 'baseline',
+                              gap: '0.25rem'
+                            }}>
+                              {product.sentimentScore.toFixed(1)}
+                              <span style={{ fontSize: '0.875rem', color: '#9ca3af' }}>/100</span>
+                            </div>
+                          </div>
+                          <div style={{
+                            fontSize: '0.7rem',
+                            color: '#9ca3af',
+                            textAlign: 'right'
+                          }}>
+                            <div>Based on {currentAspects.length} aspect{currentAspects.length !== 1 ? 's' : ''}</div>
+                            <div style={{ 
+                              marginTop: '0.25rem',
+                              color: product.sentimentScore >= 75 ? '#10b981' : 
+                                     product.sentimentScore >= 50 ? '#facc15' : '#ef4444',
+                              fontWeight: 600
+                            }}>
+                              {product.sentimentScore >= 75 ? '⭐ Excellent' : 
+                               product.sentimentScore >= 50 ? '👍 Good' : '⚠️ Fair'}
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -739,6 +971,7 @@ const ProductRecommendationApp = () => {
         onClose={() => setIsFilterModalOpen(false)}
         onApplyFilter={handleApplyFilter}
         isLoading={isAnalyzing}
+        extractedAspects={extractedAspects}
       />
     </div>
   );

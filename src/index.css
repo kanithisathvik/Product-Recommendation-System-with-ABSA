@@ -118,6 +118,18 @@ body {
   50% { transform: scale(1.2) rotate(180deg); opacity: 0.4; }
 }
 
+/* Pulse animation for recording button */
+@keyframes pulse {
+  0%, 100% { 
+    transform: scale(1); 
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.6);
+  }
+  50% { 
+    transform: scale(1.1); 
+    box-shadow: 0 0 30px rgba(239, 68, 68, 0.9);
+  }
+}
+
 /* removed blob/mesh/particles animations in favor of dot-grid */
 
 /* Enhanced Navbar */

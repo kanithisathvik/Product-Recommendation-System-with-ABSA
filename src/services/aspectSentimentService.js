@@ -473,31 +473,60 @@ export const analyzeProductSentiment = async (product, aspects) => {
 };
 
 /**
- * Calculate sentiment score for ranking products
- * Positive = 1, Neutral = 0, Negative = -1
+ * Calculate overall sentiment score for ranking products
+ * 
+ * This function provides a comprehensive scoring mechanism that:
+ * 1. Considers ALL aspects (positive, neutral, and negative)
+ * 2. Weights each sentiment appropriately:
+ *    - Positive: +1.0 point
+ *    - Neutral: +0.5 points (neutral is better than negative)
+ *    - Negative: 0 points
+ * 3. Returns a normalized score between 0-100 for easy interpretation
  * 
  * @param {Object} sentiments - Object mapping aspects to sentiment values
- * @returns {number} - Overall sentiment score
+ * @param {Object} aspectScores - Optional detailed scores for each aspect (-1 to 1)
+ * @returns {number} - Overall sentiment score (0-100)
  */
-export const calculateSentimentScore = (sentiments) => {
+export const calculateSentimentScore = (sentiments, aspectScores = null) => {
   if (!sentiments || Object.keys(sentiments).length === 0) {
     return 0;
   }
   
-  let score = 0;
-  let count = 0;
+  let totalScore = 0;
+  let maxPossibleScore = 0;
+  let aspectCount = 0;
   
-  Object.values(sentiments).forEach(sentiment => {
-    count++;
-    if (sentiment === 'positive') {
-      score += 1;
-    } else if (sentiment === 'negative') {
-      score -= 1;
-    }
-    // neutral adds 0
-  });
+  // If detailed scores are provided, use them for more accurate calculation
+  if (aspectScores && Object.keys(aspectScores).length > 0) {
+    Object.entries(aspectScores).forEach(([aspect, score]) => {
+      // Score ranges from -1 to 1, convert to 0 to 100
+      // -1 = 0 points, 0 = 50 points, 1 = 100 points
+      totalScore += (score + 1) * 50;
+      maxPossibleScore += 100;
+      aspectCount++;
+    });
+  } else {
+    // Fallback to simple sentiment-based scoring
+    Object.values(sentiments).forEach(sentiment => {
+      aspectCount++;
+      maxPossibleScore += 100;
+      
+      if (sentiment === 'positive') {
+        totalScore += 100; // Full points for positive
+      } else if (sentiment === 'neutral') {
+        totalScore += 50;  // Half points for neutral
+      } else if (sentiment === 'negative') {
+        totalScore += 0;   // No points for negative
+      }
+    });
+  }
   
-  return count > 0 ? score / count : 0;
+  // Return normalized score (0-100)
+  const finalScore = aspectCount > 0 ? totalScore / aspectCount : 0;
+  
+  console.log(`[Score Calculation] Aspects: ${aspectCount}, Total: ${totalScore}, Average: ${finalScore.toFixed(2)}`);
+  
+  return Math.round(finalScore * 100) / 100; // Round to 2 decimal places
 };
 
 export default {
