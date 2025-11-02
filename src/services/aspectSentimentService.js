@@ -339,7 +339,11 @@ export const analyzeSentiment = async (reviewText, aspects) => {
  */
 export const analyzeMultipleReviews = async (reviews, aspects) => {
   try {
-    console.log(`[ABSA] Starting analysis for ${reviews.length} reviews with aspects:`, aspects);
+    console.log(`\n[ABSA Multi-Review] ==========================================`);
+    console.log(`[ABSA Multi-Review] Starting analysis for ${reviews.length} reviews`);
+    console.log(`[ABSA Multi-Review] Aspects to analyze:`, aspects);
+    console.log(`[ABSA Multi-Review] First review preview:`, reviews[0] ? String(reviews[0]).substring(0, 100) + '...' : 'N/A');
+    console.log(`[ABSA Multi-Review] ==========================================\n`);
     
     const sentimentCounts = {};
     
@@ -457,14 +461,41 @@ export const analyzeMultipleReviews = async (reviews, aspects) => {
  * @returns {Promise<Object>} - Sentiment analysis result
  */
 export const analyzeProductSentiment = async (product, aspects) => {
+  console.log(`[Sentiment Service] Analyzing product: ${product.product_name || product.name || 'Unknown'}`);
+  console.log(`[Sentiment Service] Product ID: ${product.id || 'No ID'}`);
+  console.log(`[Sentiment Service] Number of reviews received: ${product.reviews ? product.reviews.length : 0}`);
+  console.log(`[Sentiment Service] Aspects to analyze:`, aspects);
+  
+  // Check if product has reviews
+  if (!product.reviews || product.reviews.length === 0) {
+    console.warn(`[Sentiment Service] No reviews found for product ${product.product_name || product.id}`);
+    return {
+      sentiments: {},
+      details: {},
+      scores: {},
+      reviewResults: [],
+      totalReviewsAnalyzed: 0,
+      totalReviews: 0
+    };
+  }
+  
   // Check cache first
   const cached = getCachedSentiment(product.id, aspects);
   if (cached) {
+    console.log(`[Sentiment Service] Using cached result for product ${product.product_name}`);
     return cached;
   }
   
+  console.log(`[Sentiment Service] Starting fresh analysis for product ${product.product_name}`);
+  
   // Analyze reviews
   const result = await analyzeMultipleReviews(product.reviews, aspects);
+  
+  console.log(`[Sentiment Service] Analysis complete for product ${product.product_name}:`, {
+    totalReviews: result.totalReviews,
+    reviewsAnalyzed: result.totalReviewsAnalyzed,
+    sentiments: result.sentiments
+  });
   
   // Cache the result
   cacheSentimentResult(product.id, aspects, result);
