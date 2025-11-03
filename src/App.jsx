@@ -1,6 +1,8 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import ProductRecommendationApp from "./ProductRecommendationApp";
+import AboutPage from "./pages/AboutPage";
+import FeaturesPage from "./pages/FeaturesPage";
 import ComparisonPage from "./pages/ComparisonPage";
 import ProductDetailsPage from "./pages/ProductDetailsPage";
 import SearchHistoryPage from "./pages/SearchHistoryPage";
@@ -13,6 +15,8 @@ function App() {
       <ComparisonProvider>
         <Routes>
           <Route path="/" element={<ProductRecommendationApp />} />
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/features" element={<FeaturesPage />} />
           <Route path="/compare" element={<ComparisonPage />} />
           <Route path="/product/:id" element={<ProductDetailsPage />} />
           <Route path="/history" element={<SearchHistoryPage />} />

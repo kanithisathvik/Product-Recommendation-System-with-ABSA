@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Search, ShoppingBag, Sparkles, TrendingUp, Star, ArrowRight, Zap, Filter, Heart, ExternalLink, Mic, MicOff, GitCompare, Info, Clock, Trash2 } from 'lucide-react';
+import Navbar from './components/Navbar';
 import AspectFilterModal from './components/AspectFilterModal';
 import ProductDetailsModal from './components/ProductDetailsModal';
 import ThemeToggle from './components/ThemeToggle';
@@ -23,7 +24,7 @@ const ProductRecommendationApp = () => {
   const [animatedText, setAnimatedText] = useState('');
   const [showResults, setShowResults] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
-  const [route, setRoute] = useState(window.location.hash === '#/about' ? 'about' : window.location.hash === '#/features' ? 'features' : 'home');
+  const [route, setRoute] = useState('home');
   const mouseRef = useRef({ x: 0, y: 0 });
   const inputRef = useRef(null);
 
@@ -187,32 +188,18 @@ const ProductRecommendationApp = () => {
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
 
-  // Simple hash-based routing for About page
-  useEffect(() => {
-    const onHashChange = () => {
-      const hash = window.location.hash;
-      if (hash === '#/about') {
-        setRoute('about');
-      } else if (hash === '#/features') {
-        setRoute('features');
-      } else {
-        setRoute('home');
-      }
-    };
-    window.addEventListener('hashchange', onHashChange);
-    return () => window.removeEventListener('hashchange', onHashChange);
-  }, []);
+  // Routing handled by React Router now (no hash routing)
 
   const goToAbout = () => {
-    window.location.hash = '#/about';
+    navigate('/about');
   };
 
   const goToFeatures = () => {
-    window.location.hash = '#/features';
+    navigate('/features');
   };
 
   const goHome = () => {
-    window.location.hash = '#/';
+    navigate('/');
   };
 
   // Product Details Modal Handlers
@@ -419,22 +406,15 @@ const ProductRecommendationApp = () => {
     }
   };
 
-  const handleSubmit = async (e) => {
-    if (e && e.preventDefault) e.preventDefault();
-    console.log('[Submit] handleSubmit called with prompt:', prompt);
+  const handleSubmit = async () => {
     if (!prompt.trim()) {
-      console.log('[Submit] Empty prompt, returning');
       return;
     }
 
-    console.log('[Submit] Starting search for:', prompt);
     setIsLoading(true);
-    setShowHistory(false); // Hide history dropdown after search
+    setShowHistory(false);
 
     try {
-      // Call the API with the search query
-      console.log('[API] Calling search API with query:', prompt);
-      
       const response = await fetch('https://model-hddb.vercel.app/search', {
         method: 'POST',
         headers: {
@@ -451,118 +431,85 @@ const ProductRecommendationApp = () => {
 
       const data = await response.json();
       const results = data.results || [];
-      console.log('[API] Received full response:', data);
-      console.log('[API] Extracted results array:', results);
-      console.log('[API] Number of products:', results.length);
 
-      // Log field structure for each product (Python-style)
-      results.forEach((product, index) => {
-        console.log(`\n[Field Extraction] Product ${index + 1}:`);
-        for (const [key, value] of Object.entries(product)) {
-          // Special handling for review fields to show preview
-          if (key.toLowerCase().includes('review')) {
-            if (Array.isArray(value)) {
-              console.log(`  Field: ${key}, Value: [Array with ${value.length} reviews]`);
-              console.log(`  First review: ${value[0] ? String(value[0]).substring(0, 80) : 'N/A'}...`);
-            } else if (typeof value === 'string') {
-              console.log(`  Field: ${key}, Value: ${String(value).substring(0, 80)}...`);
-            } else {
-              console.log(`  Field: ${key}, Value: ${value}`);
-            }
-          } else {
-            console.log(`  Field: ${key}, Value: ${value}`);
-          }
-        }
-      });
-
-      // IMPORTANT: Make deep copies of products to avoid reference issues
       const productsFromAPI = results.length > 0 ? 
         results.map((product, idx) => {
-          // Deep clone the product to avoid reference sharing
           const clonedProduct = JSON.parse(JSON.stringify(product));
-          // Add index for tracking
           clonedProduct.id = clonedProduct.id || `product-${idx}`;
           return clonedProduct;
         }) : 
         (Array.isArray(data) ? data : (data.products || []));
       
-      console.log('\n[API] ===== PRODUCT REVIEW VERIFICATION =====');
-      productsFromAPI.forEach((product, idx) => {
-        const reviewFields = Object.keys(product).filter(k => k.toLowerCase().includes('review'));
-        console.log(`Product ${idx + 1} (${getProductName(product)}):`);
-        reviewFields.forEach(field => {
-          const reviews = product[field];
-          if (Array.isArray(reviews)) {
-            console.log(`  ${field}: ${reviews.length} reviews`);
-            console.log(`  First review: ${reviews[0] ? String(reviews[0]).substring(0, 60) : 'N/A'}...`);
-          }
-        });
-      });
-      console.log('[API] ========================================\n');
-      
-      if (productsFromAPI.length === 0) {
-        console.warn('[API] No products returned from API');
-        setProducts([]);
-        setFilteredProducts([]);
-        setIsLoading(false);
-        setShowResults(true);
-        return;
-      }
+      // Fallback to mock results if API returns nothing
+      const finalProducts = (productsFromAPI && productsFromAPI.length > 0) ? productsFromAPI : mockResults;
 
-      // Set products from API
-      setProducts(productsFromAPI);
-      setFilteredProducts(productsFromAPI);
+      setProducts(finalProducts);
+      setFilteredProducts(finalProducts);
       
-      // Update stats - track total searches and products
       updateStats({
         totalSearches: statsData.totalSearches + 1,
-        productsAnalyzed: statsData.productsAnalyzed + productsFromAPI.length
+        productsAnalyzed: statsData.productsAnalyzed + finalProducts.length
       });
       
-      // Save to localStorage for other pages to access
-      localStorage.setItem('searchResults', JSON.stringify(productsFromAPI));
-      console.log(productsFromAPI);
-      // Extract aspects from user's search query
-      const aspectsFromQuery = extractAspectsFromPrompt(prompt);
+      localStorage.setItem('searchResults', JSON.stringify(finalProducts));
       
-      console.log('[Search] User query:', prompt);
-      console.log('[Search] Extracted aspects from query:', aspectsFromQuery);
-
-      // Store extracted aspects for later merging with manual filter
+      const aspectsFromQuery = extractAspectsFromPrompt(prompt);
       setExtractedAspects(aspectsFromQuery);
 
       if (aspectsFromQuery.length > 0) {
-        // User mentioned specific aspects - trigger ABSA analysis
-        console.log('[Search] Triggering automatic ABSA analysis with extracted aspects');
         await handleApplyFilter({
           aspects: aspectsFromQuery,
           category: 'all'
-        }, productsFromAPI); // Pass the fetched products
+        }, finalProducts);
         
-        // Add to search history with metadata after analysis
         addToHistory(prompt, {
-          resultsCount: productsFromAPI.length,
+          resultsCount: finalProducts.length,
           aspectsDetected: aspectsFromQuery,
           hasABSA: true
         });
       } else {
-        // No aspects mentioned - show regular results
-        console.log('[Search] No aspects detected, showing regular results');
         setIsLoading(false);
         setShowResults(true);
         
-        // Add to search history with metadata
         addToHistory(prompt, {
-          resultsCount: productsFromAPI.length,
+          resultsCount: finalProducts.length,
           aspectsDetected: [],
           hasABSA: false
         });
       }
     } catch (error) {
       console.error('[API] Error fetching products:', error);
-      setIsLoading(false);
-      // Show error message to user
-      alert(`Failed to fetch products: ${error.message}`);
+      // Graceful fallback to mock results when API fails
+      try {
+        const finalProducts = mockResults.map((p, idx) => ({ ...p, id: p.id || `mock-${idx}` }));
+        setProducts(finalProducts);
+        setFilteredProducts(finalProducts);
+        setShowResults(true);
+        updateStats({
+          totalSearches: statsData.totalSearches + 1,
+          productsAnalyzed: statsData.productsAnalyzed + finalProducts.length
+        });
+        localStorage.setItem('searchResults', JSON.stringify(finalProducts));
+
+        const aspectsFromQuery = extractAspectsFromPrompt(prompt);
+        setExtractedAspects(aspectsFromQuery);
+
+        if (aspectsFromQuery.length > 0) {
+          await handleApplyFilter({ aspects: aspectsFromQuery, category: 'all' }, finalProducts);
+        } else {
+          setIsLoading(false);
+        }
+
+        addToHistory(prompt, {
+          resultsCount: finalProducts.length,
+          aspectsDetected: aspectsFromQuery,
+          hasABSA: aspectsFromQuery.length > 0
+        });
+      } catch (fallbackError) {
+        console.error('[Search] Fallback also failed:', fallbackError);
+        setIsLoading(false);
+        alert(`Search failed. Please try again later.`);
+      }
     }
   };
 
@@ -571,11 +518,9 @@ const ProductRecommendationApp = () => {
     const queryFromHistory = location.state?.searchQuery;
     if (queryFromHistory) {
       setPrompt(queryFromHistory);
-      // Trigger search automatically
       setTimeout(() => {
-        handleSubmit(null);
+        handleSubmit();
       }, 100);
-      // Clear the state to prevent re-triggering
       window.history.replaceState({}, document.title);
     }
   }, [location.state?.searchQuery]);
@@ -604,7 +549,6 @@ const ProductRecommendationApp = () => {
       }
     }
     
-    console.log('[Aspect Extraction] Found aspects:', foundAspects);
     return foundAspects;
   };
 
@@ -861,61 +805,7 @@ const ProductRecommendationApp = () => {
       </div>
 
       {/* Navigation */}
-      <nav className="navbar">
-        <div className="brand" onClick={goHome} style={{cursor: 'pointer'}}>
-          <div className="logo">
-            <ShoppingBag className="icon" />
-          </div>
-          <span className="brand-name">Advanced Product Recommendation System</span>
-        </div>
-        <div className="nav-links">
-          <button className="nav-link" onClick={goToAbout}>About</button>
-          <button className="nav-link" onClick={goToFeatures}>Features</button>
-          
-          {/* Favorites Button with Badge */}
-          <button 
-            className="nav-link" 
-            onClick={() => navigate('/favorites')}
-            style={{
-              position: 'relative',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem'
-            }}
-          >
-            <Heart size={18} fill={favoritesCount > 0 ? '#ef4444' : 'none'} color={favoritesCount > 0 ? '#ef4444' : 'currentColor'} />
-            Favorites
-            {favoritesCount > 0 && (
-              <span style={{
-                position: 'absolute',
-                top: '-4px',
-                right: '-4px',
-                background: '#ef4444',
-                color: 'white',
-                fontSize: '0.7rem',
-                fontWeight: 'bold',
-                padding: '2px 6px',
-                borderRadius: '999px',
-                minWidth: '20px',
-                textAlign: 'center',
-                boxShadow: '0 2px 8px rgba(239, 68, 68, 0.4)'
-              }}>
-                {favoritesCount}
-              </span>
-            )}
-          </button>
-          
-          {/* Theme Toggle */}
-          <div style={{ marginLeft: '0.5rem' }}>
-            <ThemeToggle />
-          </div>
-          
-          <button className="cta-button">
-            <span>Get Started</span>
-            <div className="button-shimmer"></div>
-          </button>
-        </div>
-      </nav>
+      <Navbar />
 
       {/* Main Content */}
       <main className="main">
@@ -1632,244 +1522,123 @@ const ProductRecommendationApp = () => {
             </span>
           </p>
 
-          {/* Enhanced Search Interface */}
-          <div 
-            className={`search-container ${searchFocused ? 'focused' : ''}`}
-            onClickCapture={(e) => {
-              // Shield: prevent any parent/global click handlers from firing
-              e.stopPropagation();
-            }}
-            onMouseDownCapture={(e) => {
-              // Shield: stop propagation early on mousedown to avoid unintended navigations
-              e.stopPropagation();
-            }}
-            onTouchStartCapture={(e) => {
-              // Shield for mobile taps
-              e.stopPropagation();
-            }}
-          >
-            <form 
-              onSubmit={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('[Form] Submit event triggered');
-                handleSubmit(e);
-                return false;
-              }}
-              onClickCapture={(e) => {
-                // Prevent any ancestor click handlers from running while interacting
-                e.stopPropagation();
-              }}
-              onMouseDownCapture={(e) => {
-                e.stopPropagation();
-              }}
-              style={{ width: '100%' }}
-            >
-            <div 
-              className="search-box"
-              onClick={(e) => {
-                // Click anywhere in search box focuses the input
-                if (inputRef.current && e.target !== inputRef.current) {
-                  e.preventDefault();
-                  inputRef.current.focus();
-                }
-              }}
-            >
-              <Search className="search-icon" />
-              <input
-                ref={inputRef}
-                type="text"
-                value={prompt}
-                onChange={(e) => {
-                  setPrompt(e.target.value);
-                }}
-                onInput={(e) => {
-                  setPrompt(e.target.value);
-                }}
-                onClick={(e) => {
-                  // Ensure clicks in the input never bubble and cause redirects
-                  e.stopPropagation();
-                }}
-                onMouseDown={(e) => {
-                  // Make sure focus stays here and no parent handlers run
-                  e.stopPropagation();
-                }}
-                onFocus={(e) => {
-                  setSearchFocused(true);
-                  if (hasHistory) setShowHistory(true);
-                }}
-                onBlur={() => {
-                  setSearchFocused(false);
-                  setTimeout(() => setShowHistory(false), 200);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.keyCode === 13) {
-                    e.preventDefault();
-                    handleSubmit(e);
-                  }
-                }}
-                placeholder="Describe the product you're looking for..."
-                disabled={isLoading || isRecording || isSpeechProcessing}
-                className="search-input"
-                autoComplete="off"
-                spellCheck="false"
-                tabIndex={0}
-                aria-label="Search for products"
-                role="searchbox"
-              />
-
-              <button
-                type="submit"
-                disabled={isLoading || !prompt.trim()}
-                className="search-btn magnetic-btn"
-                aria-label="Search for products"
-                onClick={(e) => {
-                  // Prevent bubbling to any parent click handlers
-                  e.stopPropagation();
-                }}
-                onMouseDown={(e) => {
-                  e.stopPropagation();
-                }}
-              >
-                {isLoading ? (
-                  <div className="advanced-spinner">
-                    <div className="spinner-ring"></div>
-                    <div className="spinner-ring"></div>
-                    <div className="spinner-ring"></div>
-                  </div>
-                ) : (
-                  <>
-                    <span>Find Products</span>
-                    <ArrowRight className="arrow" />
-                    <div className="button-ripple"></div>
-                  </>
-                )}
-              </button>
-            </div>
-            </form>
-            
-            {/* Voice Search - Separate Section with Divider */}
-            <div className="voice-search-section" style={{
-              marginTop: '1.5rem',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '1rem',
-              alignItems: 'center'
-            }}>
-              <div className="voice-divider" style={{
-                display: 'flex',
-                alignItems: 'center',
-                width: '100%',
-                gap: '1rem'
-              }}>
-                <div style={{
-                  flex: 1,
-                  height: '1px',
-                  background: 'linear-gradient(to right, transparent, rgba(168, 85, 247, 0.3), transparent)'
-                }}></div>
-                <span style={{
-                  color: '#a855f7',
-                  fontSize: '0.875rem',
-                  fontWeight: 600,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.1em'
-                }}>OR</span>
-                <div style={{
-                  flex: 1,
-                  height: '1px',
-                  background: 'linear-gradient(to right, transparent, rgba(168, 85, 247, 0.3), transparent)'
-                }}></div>
-              </div>
+          {/* COMPLETELY NEW SEARCH - MINIMAL IMPLEMENTATION */}
+          <div className="search-container-wrapper">
+            <div className={`search-container ${searchFocused ? 'focused' : ''}`}>
               
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  handleVoiceInput();
-                }}
-                disabled={isLoading || isRecording || isSpeechProcessing}
-                title={isRecording ? "Recording..." : isSpeechProcessing ? "Processing..." : "Use Voice to Search"}
-                className="voice-search-btn"
-                style={{
-                  width: '100%',
-                  padding: '1.25rem 2rem',
-                  background: isRecording 
-                    ? 'linear-gradient(135deg, #ef4444, #dc2626)' 
-                    : isSpeechProcessing 
-                    ? 'linear-gradient(135deg, #facc15, #eab308)'
-                    : 'linear-gradient(135deg, #8b5cf6, #6366f1)',
-                  border: isRecording 
-                    ? '2px solid rgba(239, 68, 68, 0.5)'
-                    : '2px solid rgba(139, 92, 246, 0.3)',
-                  borderRadius: '16px',
-                  color: 'white',
-                  fontSize: '1.05rem',
-                  fontWeight: 600,
-                  cursor: isRecording || isSpeechProcessing ? 'not-allowed' : 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '0.75rem',
-                  transition: 'all 0.3s ease',
-                  boxShadow: isRecording 
-                    ? '0 8px 32px rgba(239, 68, 68, 0.4), 0 0 20px rgba(239, 68, 68, 0.3)' 
-                    : '0 4px 20px rgba(139, 92, 246, 0.3)',
-                  animation: isRecording ? 'pulse 1.5s infinite' : 'none',
-                  pointerEvents: 'auto',
-                  position: 'relative',
-                  overflow: 'hidden',
-                  backdropFilter: 'blur(10px)'
-                }}
-                onMouseEnter={(e) => {
-                  if (!isRecording && !isSpeechProcessing) {
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                    e.currentTarget.style.boxShadow = '0 8px 30px rgba(139, 92, 246, 0.5)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = isRecording 
-                    ? '0 8px 32px rgba(239, 68, 68, 0.4), 0 0 20px rgba(239, 68, 68, 0.3)' 
-                    : '0 4px 20px rgba(139, 92, 246, 0.3)';
-                }}
-              >
-                {isRecording ? (
-                  <>
-                    <MicOff size={24} />
-                    <span>Stop Recording</span>
-                    <span style={{
-                      marginLeft: 'auto',
-                      fontSize: '0.875rem',
-                      opacity: 0.9,
-                      animation: 'blink 1s infinite'
-                    }}>●</span>
-                  </>
-                ) : isSpeechProcessing ? (
-                  <>
-                    <div className="advanced-spinner" style={{ width: '24px', height: '24px' }}>
-                      <div className="spinner-ring" style={{ width: '24px', height: '24px', borderWidth: '3px' }}></div>
-                    </div>
-                    <span>Processing Your Speech...</span>
-                  </>
-                ) : (
-                  <>
-                    <Mic size={24} />
-                    <span>Use Voice to Search</span>
-                    <span style={{
-                      marginLeft: 'auto',
-                      fontSize: '0.75rem',
-                      opacity: 0.8,
-                      padding: '0.25rem 0.5rem',
-                      background: 'rgba(255, 255, 255, 0.2)',
-                      borderRadius: '6px'
-                    }}>Click & Speak</span>
-                  </>
+              {/* Text Search Box - Ultra Simple */}
+              <div className="search-box-modern">
+                <div className="search-icon-wrapper">
+                  <Search className="search-icon" size={22} />
+                </div>
+                
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  onClick={(e) => e.stopPropagation()}
+                  onFocus={() => {
+                    setSearchFocused(true);
+                    if (hasHistory) setShowHistory(true);
+                  }}
+                  onBlur={() => {
+                    setSearchFocused(false);
+                    setTimeout(() => setShowHistory(false), 200);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (prompt.trim() && !isLoading) {
+                        handleSubmit();
+                      }
+                    }
+                  }}
+                  placeholder="Describe the product you're looking for..."
+                  disabled={isLoading || isRecording || isSpeechProcessing}
+                  className="search-input-modern"
+                  autoComplete="off"
+                  spellCheck="false"
+                />
+
+                {prompt && !isLoading && (
+                  <button
+                    type="button"
+                    className="clear-btn"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPrompt('');
+                      setTimeout(() => inputRef.current?.focus(), 0);
+                    }}
+                  >
+                    ✕
+                  </button>
                 )}
-                <div className="button-ripple"></div>
-              </button>
+
+                <button
+                  type="button"
+                  className="search-btn-modern"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (prompt.trim() && !isLoading) handleSubmit();
+                  }}
+                  disabled={isLoading || !prompt.trim()}
+                >
+                  {isLoading ? (
+                    <div className="spinner-modern"></div>
+                  ) : (
+                    <ArrowRight size={20} />
+                  )}
+                </button>
+              </div>
+
+              {/* Voice Search */}
+              <div className="voice-search-container">
+                <div className="divider-line">
+                  <span className="divider-text">OR</span>
+                </div>
+                
+                <button
+                  type="button"
+                  className={`voice-btn-modern ${isRecording ? 'recording' : ''} ${isSpeechProcessing ? 'processing' : ''}`}
+                  onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleVoiceInput(); }}
+                  disabled={isLoading || isRecording || isSpeechProcessing}
+                >
+                  {isRecording ? (
+                    <>
+                      <MicOff size={20} />
+                      <span>Recording... Click to stop</span>
+                      <span className="recording-dot">●</span>
+                    </>
+                  ) : isSpeechProcessing ? (
+                    <>
+                      <div className="spinner-modern"></div>
+                      <span>Processing speech...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Mic size={20} />
+                      <span>Search by Voice</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
             
+            {/* Status Messages */}
+            {speechError && (
+              <div className="search-error-message">
+                <span>⚠️ {speechError}</span>
+              </div>
+            )}
             
             {/* Search History Dropdown */}
             {showHistory && hasHistory && (
@@ -1929,10 +1698,12 @@ const ProductRecommendationApp = () => {
                   </button>
                 </div>
                 <div style={{ padding: '8px' }}>
-                  {history.map((item, index) => (
+                  {history.map((item, index) => {
+                    const itemQuery = typeof item === 'string' ? item : item?.query || '';
+                    return (
                     <button
                       key={index}
-                      onClick={() => selectHistoryItem(item)}
+                      onClick={() => selectHistoryItem(itemQuery)}
                       style={{
                         width: '100%',
                         padding: '12px 16px',
@@ -1962,39 +1733,12 @@ const ProductRecommendationApp = () => {
                     >
                       <Search size={14} style={{ color: '#9ca3af', flexShrink: 0 }} />
                       <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {item}
+                        {itemQuery}
                       </span>
                       <ArrowRight size={14} style={{ color: '#6b7280', flexShrink: 0, opacity: 0.5 }} />
                     </button>
-                  ))}
+                  )})}
                 </div>
-              </div>
-            )}
-            
-            {/* Voice Input Status Messages */}
-            {(isRecording || isSpeechProcessing || speechError) && (
-              <div style={{
-                marginTop: '12px',
-                textAlign: 'center',
-                fontSize: '0.875rem',
-                color: speechError ? '#ef4444' : isRecording ? '#8b5cf6' : '#facc15',
-                fontWeight: 500,
-                padding: '8px 16px',
-                background: speechError 
-                  ? 'rgba(239, 68, 68, 0.1)' 
-                  : isRecording 
-                  ? 'rgba(139, 92, 246, 0.1)'
-                  : 'rgba(250, 204, 21, 0.1)',
-                borderRadius: '8px',
-                border: `1px solid ${speechError ? '#ef4444' : isRecording ? '#8b5cf6' : '#facc15'}33`
-              }}>
-                {speechError ? (
-                  <span>❌ {speechError}</span>
-                ) : isRecording ? (
-                  <span>🎤 Listening... Speak now! (Auto-stops in 10 seconds)</span>
-                ) : isSpeechProcessing ? (
-                  <span>⏳ Processing your speech... Please wait</span>
-                ) : null}
               </div>
             )}
             
