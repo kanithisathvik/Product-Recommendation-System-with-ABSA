@@ -41,6 +41,38 @@ export const ComparisonProvider = ({ children }) => {
     });
   }, []);
 
+  // Replace selection with a provided list (e.g., compare all search results)
+  const setProductsForComparison = useCallback((products) => {
+    if (!Array.isArray(products)) return;
+    // Deduplicate by id, keep order
+    const seen = new Set();
+    const unique = products.filter(p => {
+      const id = p?.id ?? p?._id ?? Math.random().toString(36).slice(2);
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+    setSelectedProducts(unique);
+  }, []);
+
+  // Set list and open modal in one call (prevents race with async state)
+  const openWithProducts = useCallback((products) => {
+    if (!Array.isArray(products)) return;
+    const seen = new Set();
+    const unique = products.filter(p => {
+      const id = p?.id ?? p?._id ?? Math.random().toString(36).slice(2);
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+    setSelectedProducts(unique);
+    if (unique.length >= 2) {
+      setIsModalOpen(true);
+    } else {
+      console.warn('Need at least 2 products to compare');
+    }
+  }, []);
+
   /**
    * Remove a product from comparison
    */
@@ -100,6 +132,7 @@ export const ComparisonProvider = ({ children }) => {
   const value = {
     selectedProducts,
     addToComparison,
+    setProductsForComparison,
     removeFromComparison,
     toggleComparison,
     isSelected,
@@ -107,6 +140,7 @@ export const ComparisonProvider = ({ children }) => {
     isModalOpen,
     openModal,
     closeModal,
+    openWithProducts,
     canAddMore: selectedProducts.length < MAX_COMPARISON,
     count: selectedProducts.length,
     maxComparison: MAX_COMPARISON

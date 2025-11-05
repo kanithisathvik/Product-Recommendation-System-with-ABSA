@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Star, ShoppingCart, Heart, TrendingUp, Package, Award, Zap } from 'lucide-react';
 import { SentimentBadgeList } from '../components/SentimentBadge';
 import { useTheme } from '../context/ThemeContext';
@@ -7,21 +7,42 @@ import { useTheme } from '../context/ThemeContext';
 const ProductDetailsPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { isDark } = useTheme();
   const [product, setProduct] = useState(null);
 
   useEffect(() => {
-    // Get product from localStorage
-  const searchResults = JSON.parse(localStorage.getItem('searchResults') || '[]');
-  const foundProduct = searchResults.find(p => String(p.id) === String(id));
-    
-    if (foundProduct) {
-      setProduct(foundProduct);
-    } else {
-      // Product not found, redirect to home
-      navigate('/');
+    // 1) If product was passed via navigation state, use it first
+    const stateProduct = location.state?.product;
+    if (stateProduct && String(stateProduct.id) === String(id)) {
+      setProduct(stateProduct);
+      return;
     }
-  }, [id, navigate]);
+
+    // 2) Fallback: find in localStorage search results
+    const searchResults = JSON.parse(localStorage.getItem('searchResults') || '[]');
+    const foundInResults = searchResults.find(p => String(p.id) === String(id));
+    if (foundInResults) {
+      setProduct(foundInResults);
+      return;
+    }
+
+    // 3) Fallback: recently viewed cache snapshot
+    try {
+      const rvCache = JSON.parse(localStorage.getItem('recently_viewed_cache') || '{}');
+      const fromCache = rvCache?.[String(id)];
+      if (fromCache) {
+        setProduct({
+          ...fromCache,
+          product_name: fromCache.name || `Product ${id}`,
+        });
+        return;
+      }
+    } catch {}
+
+    // 4) Not found: go home
+    navigate('/');
+  }, [id, navigate, location.state]);
 
   if (!product) {
     return (
@@ -41,8 +62,14 @@ const ProductDetailsPage = () => {
     );
   }
 
-  const discountedPrice = product.mrp - product.selling_price;
-  const discountPercentage = ((discountedPrice / product.mrp) * 100).toFixed(0);
+  const num = (v) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+  // Canonical API-aligned single price
+  const sell = num(product['Price']);
+  const rating = num(product.rating);
+  const reviewsCount = num(product.reviews_count);
 
   return (
     <div className={isDark ? 'dark' : ''} style={{
@@ -130,7 +157,7 @@ const ProductDetailsPage = () => {
               {product.image ? (
                 <img
                   src={product.image}
-                  alt={product.product_name}
+                  alt={product['Product Name'] || product.product_name}
                   style={{
                     width: '100%',
                     height: '400px',
@@ -164,7 +191,7 @@ const ProductDetailsPage = () => {
                 marginBottom: '1rem',
                 lineHeight: 1.2
               }}>
-                {product.product_name}
+                {product['Product Name'] || product.product_name || product.name || 'Product Details'}
               </h1>
 
               {/* Brand & Series */}
@@ -218,14 +245,9 @@ const ProductDetailsPage = () => {
                     fontWeight: 700,
                     color: '#facc15'
                   }}>
-                    {product.rating}
+                    {rating != null ? rating : '—'}
                   </span>
-                  <span style={{
-                    fontSize: '1rem',
-                    color: '#9ca3af'
-                  }}>
-                    / 5
-                  </span>
+                  {/* Removed "/ 5" suffix as per requirement */}
                 </div>
                 <div style={{
                   height: '40px',
@@ -236,12 +258,12 @@ const ProductDetailsPage = () => {
                   color: '#d1d5db',
                   fontSize: '1rem'
                 }}>
-                  <div style={{ fontWeight: 600 }}>{product.reviews_count.toLocaleString()}</div>
+                  <div style={{ fontWeight: 600 }}>{reviewsCount != null ? reviewsCount.toLocaleString() : '—'}</div>
                   <div style={{ fontSize: '0.875rem', color: '#9ca3af' }}>Reviews</div>
                 </div>
               </div>
 
-              {/* Price Section */}
+              {/* Price Section (canonical) */}
               <div style={{
                 padding: '2rem',
                 background: 'linear-gradient(135deg, rgba(16,185,129,0.2), rgba(52,211,153,0.2))',
@@ -255,38 +277,7 @@ const ProductDetailsPage = () => {
                   color: '#10b981',
                   marginBottom: '0.5rem'
                 }}>
-                  ₹{product.selling_price.toLocaleString()}
-                </div>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '1rem',
-                  fontSize: '1.1rem'
-                }}>
-                  <span style={{
-                    color: '#9ca3af',
-                    textDecoration: 'line-through'
-                  }}>
-                    MRP: ₹{product.mrp.toLocaleString()}
-                  </span>
-                  <span style={{
-                    padding: '0.25rem 0.75rem',
-                    background: '#ef4444',
-                    color: 'white',
-                    borderRadius: '0.375rem',
-                    fontWeight: 700,
-                    fontSize: '1rem'
-                  }}>
-                    {product.discount}% OFF
-                  </span>
-                </div>
-                <div style={{
-                  marginTop: '0.5rem',
-                  color: '#10b981',
-                  fontSize: '1rem',
-                  fontWeight: 600
-                }}>
-                  You save: ₹{discountedPrice.toLocaleString()}
+                  {sell != null ? `₹${sell.toLocaleString()}` : '—'}
                 </div>
               </div>
 
@@ -471,15 +462,15 @@ const ProductDetailsPage = () => {
               display: 'grid',
               gap: '1rem'
             }}>
-              <SpecRow label="Display Size" value={product.standing_screen_display_size} />
-              <SpecRow label="Screen Resolution" value={product.screen_resolution} />
-              <SpecRow label="Processor" value={product.processor_type} />
-              <SpecRow label="RAM" value={`${product.ram_gb} GB`} />
-              <SpecRow label="Storage" value={`${product.storage_gb} GB SSD`} />
-              <SpecRow label="Graphics" value={product.graphics_coprocessor} />
-              <SpecRow label="Operating System" value={product.operating_system} />
-              <SpecRow label="Color" value={product.colour} />
-              <SpecRow label="Form Factor" value={product.form_factor} />
+              <SpecRow label="Display Size" value={product.standing_screen_display_size || '—'} />
+              <SpecRow label="Screen Resolution" value={product.screen_resolution || '—'} />
+              <SpecRow label="Processor" value={product.processor_type || product.processor || '—'} />
+              <SpecRow label="RAM" value={product.ram_gb != null ? `${product.ram_gb} GB` : '—'} />
+              <SpecRow label="Storage" value={product.storage_gb != null ? `${product.storage_gb} GB SSD` : '—'} />
+              <SpecRow label="Graphics" value={product.graphics_coprocessor || product.gpu || '—'} />
+              <SpecRow label="Operating System" value={product.operating_system || '—'} />
+              <SpecRow label="Color" value={product.colour || product.color || '—'} />
+              <SpecRow label="Form Factor" value={product.form_factor || '—'} />
             </div>
           </div>
         </div>

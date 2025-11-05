@@ -16,7 +16,7 @@ const ComparisonPage = () => {
     if (!p || typeof p !== 'object') return null;
 
     const id = p.id ?? p.product_id ?? `product-${idx}`;
-    const product_name = p.product_name ?? p.name ?? p.title ?? 'Product';
+    const name = p['Product Name'] ?? p.product_name ?? p.name ?? p.title ?? 'Product';
     const image = p.image ?? p.imageUrl ?? p.thumbnail ?? '';
 
     // Derive numeric selling price from various shapes (number or string like "$129.99" or "₹12,999")
@@ -25,10 +25,12 @@ const ComparisonPage = () => {
       selling_price = p.selling_price;
     } else {
       const priceSource =
-        typeof p.price === 'number' ? p.price :
+        (typeof p['Price'] === 'number' ? p['Price'] :
+        (typeof p['Price'] === 'string' ? p['Price'] :
+        (typeof p.price === 'number' ? p.price :
         (typeof p.price === 'string' ? p.price :
         (typeof p.current_price === 'number' ? p.current_price :
-        (typeof p.current_price === 'string' ? p.current_price : undefined)));
+        (typeof p.current_price === 'string' ? p.current_price : undefined))))));
       if (typeof priceSource === 'number') {
         selling_price = priceSource;
       } else if (typeof priceSource === 'string') {
@@ -59,10 +61,11 @@ const ComparisonPage = () => {
         ? p.sentimentAnalysis.overallScore
         : undefined;
 
-    return {
+    const normalized = {
       ...p,
       id,
-      product_name,
+      product_name: name,
+      ['Product Name']: name,
       image,
       selling_price,
       rating,
@@ -70,6 +73,9 @@ const ComparisonPage = () => {
       discount,
       sentimentScore
     };
+    // Canonical API-aligned price
+    normalized['Price'] = typeof p['Price'] === 'number' ? p['Price'] : selling_price;
+    return normalized;
   };
 
   useEffect(() => {
@@ -306,14 +312,14 @@ const ComparisonPage = () => {
                     fontSize: '1rem',
                     marginBottom: '0.25rem'
                   }}>
-                    {product.product_name}
+                    {product['Product Name']}
                   </div>
                   <div style={{
                     color: '#10b981',
                     fontWeight: 600,
                     fontSize: '0.875rem'
                   }}>
-                    ₹{product.selling_price.toLocaleString()}
+                    ₹{(product['Price'] ?? 0).toLocaleString()}
                   </div>
                 </div>
                 <button
@@ -430,7 +436,7 @@ const ComparisonPage = () => {
                         WebkitBoxOrient: 'vertical',
                         overflow: 'hidden'
                       }}>
-                        {product.product_name}
+                        {product['Product Name']}
                       </div>
                     </div>
 
@@ -593,7 +599,7 @@ const ComparisonPage = () => {
                     color: '#10b981',
                     fontWeight: 700
                   }}>
-                    ₹{(product.selling_price ?? 0).toLocaleString()}
+                    ₹{(product['Price'] ?? 0).toLocaleString()}
                     {product.discount > 0 && (
                       <span style={{
                         fontSize: '1rem',
@@ -613,18 +619,18 @@ const ComparisonPage = () => {
               {/* Price Comparison */}
               <ComparisonRow
                 label="Price"
-                value1={`₹${product1.selling_price.toLocaleString()}`}
-                value2={`₹${product2.selling_price.toLocaleString()}`}
-                status1={getComparisonValue(product1.selling_price, product2.selling_price, false)}
-                status2={getComparisonValue(product2.selling_price, product1.selling_price, false)}
+                value1={`₹${(product1['Price'] ?? 0).toLocaleString()}`}
+                value2={`₹${(product2['Price'] ?? 0).toLocaleString()}`}
+                status1={getComparisonValue(product1['Price'], product2['Price'], false)}
+                status2={getComparisonValue(product2['Price'], product1['Price'], false)}
                 icon={getComparisonIcon}
               />
 
               {/* Rating Comparison */}
               <ComparisonRow
                 label="Rating"
-                value1={`${product1.rating} / 5`}
-                value2={`${product2.rating} / 5`}
+                value1={`${product1.rating}`}
+                value2={`${product2.rating}`}
                 status1={getComparisonValue(product1.rating, product2.rating)}
                 status2={getComparisonValue(product2.rating, product1.rating)}
                 icon={getComparisonIcon}

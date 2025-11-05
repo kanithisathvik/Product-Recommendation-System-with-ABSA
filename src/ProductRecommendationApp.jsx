@@ -10,6 +10,17 @@ import ThemeToggle from './components/ThemeToggle';
 import Toast from './components/Toast';
 import { SentimentBadgeList } from './components/SentimentBadge';
 import ReviewAnalysisDetails from './components/ReviewAnalysisDetails';
+import RecentlyViewedPanel from './components/RecentlyViewedPanel';
+import ProductTags from './components/ProductTags';
+import SmartRecommendations from './components/SmartRecommendations';
+import ProductSpecsExtended from './components/ProductSpecsExtended';
+import RatingBreakdown from './components/RatingBreakdown';
+import RatingBreakdownModal from './components/RatingBreakdownModal';
+import PromptAssistBar from './components/PromptAssistBar';
+import DetectedTagsBar from './components/DetectedTagsBar';
+import ShareProductButton from './components/ShareProductButton';
+import { useRecentlyViewed } from './hooks/useRecentlyViewed';
+import { useIntentPrediction } from './hooks/useIntentPrediction';
 import { useComparison } from './context/ComparisonContext';
 import { useSearchHistory } from './hooks/useSearchHistory';
 import { useFavorites } from './context/FavoritesContext.jsx';
@@ -31,7 +42,7 @@ const ProductRecommendationApp = () => {
   const inputRef = useRef(null);
 
   // Comparison Context
-  const { toggleComparison, isSelected, canAddMore } = useComparison();
+  const { toggleComparison, isSelected, canAddMore, openWithProducts } = useComparison();
 
   // Favorites Context
   const { toggleFavorite, isFavorite, favoritesCount, showNotification, notificationMessage } = useFavorites();
@@ -43,6 +54,8 @@ const ProductRecommendationApp = () => {
   // Product Details Modal State
   const [selectedProductForModal, setSelectedProductForModal] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [ratingDistModal, setRatingDistModal] = useState(null);
+  const { addViewedProduct } = useRecentlyViewed();
 
   // ABSA Feature States
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
@@ -168,6 +181,9 @@ const ProductRecommendationApp = () => {
   const [accuracyCount] = useCountUp(95, 1500);
   const [userCount] = useCountUp(statsData.totalSearches || 50000, 2500);
 
+  // Live tag suggestions from current prompt (keeps prompt visible and tags updated)
+  const { suggestions: promptTags } = useIntentPrediction(prompt);
+
   useEffect(() => {
     let i = 0;
     const timer = setInterval(() => {
@@ -208,6 +224,7 @@ const ProductRecommendationApp = () => {
   const openProductDetails = (product) => {
     setSelectedProductForModal(product);
     setIsModalOpen(true);
+    try { addViewedProduct(product); } catch {}
   };
 
   const closeProductDetailsModal = () => {
@@ -271,6 +288,7 @@ const ProductRecommendationApp = () => {
   // Helper to get product name from various possible field names
   const getProductName = (product) => {
     const nameFields = [
+      'Product Name', // Prefer API's explicit field
       'product_name', 'name', 'title', 'productName', 'Product_Name', 'Name',
       'productTitle', 'title_str', 'model', 'Model', 'Product', 'ITEM_NAME'
     ];
@@ -295,6 +313,8 @@ const ProductRecommendationApp = () => {
     const name = getProductName(clonedProduct);
     clonedProduct.product_name = name;
     if (!clonedProduct.name) clonedProduct.name = name;
+    // Canonical API-aligned name
+    clonedProduct['Product Name'] = name;
     // Coerce common numeric fields
     const toNum = (v) => {
       if (v === null || v === undefined) return null;
@@ -303,7 +323,15 @@ const ProductRecommendationApp = () => {
       return Number.isFinite(num) ? num : null;
     };
     // Prices
-    clonedProduct.selling_price = toNum(clonedProduct.selling_price ?? clonedProduct.sellingPrice ?? clonedProduct.price ?? clonedProduct.current_price);
+    const unifiedPrice = toNum(
+      clonedProduct['Price'] ??
+      clonedProduct.selling_price ??
+      clonedProduct.sellingPrice ??
+      clonedProduct.price ??
+      clonedProduct.current_price
+    );
+    clonedProduct['Price'] = unifiedPrice ?? 0;
+    clonedProduct.selling_price = unifiedPrice ?? toNum(clonedProduct.selling_price);
     clonedProduct.mrp = toNum(clonedProduct.mrp ?? clonedProduct.original_price ?? clonedProduct.originalPrice ?? clonedProduct.list_price ?? clonedProduct.listPrice);
     if (clonedProduct.discount !== null && clonedProduct.discount !== undefined) {
       clonedProduct.discount = toNum(clonedProduct.discount);
@@ -594,6 +622,31 @@ const ProductRecommendationApp = () => {
     return foundAspects;
   };
 
+  // Tag/intent-driven quick filter
+  const applyTagFilter = (tag) => {
+    if (!products || products.length === 0) return;
+    const t = String(tag).toLowerCase();
+    const filtered = products.filter(p => {
+      const cat = String(p.category||'').toLowerCase();
+      const brand = String(p.brand||'').toLowerCase();
+      const price = Number(p['Price'] || p.selling_price || p.price || 0) || 0;
+      const ram = Number(p.ram_gb||0);
+      const sentiments = p.sentiments || {};
+      const pos = (k) => (sentiments[k]?.positive||0) > (sentiments[k]?.negative||0);
+      if (t === 'gaming') return cat.includes('gaming');
+      if (t === 'budget') return price && price < 60000;
+      if (t === 'premium') return price && price >= 150000;
+      if (t === 'lightweight') return cat.includes('ultra') || String(p.form_factor||'').toLowerCase().includes('ultra');
+      if (t === 'multitasking') return ram >= 16;
+      if (t === 'great display') return pos('display');
+      if (t === 'long battery') return pos('battery life');
+      if (t === 'high performance') return pos('performance');
+      if (t === 'durable') return pos('build quality');
+      return brand.includes(t) || cat.includes(t);
+    });
+    if (filtered.length > 0) setFilteredProducts(filtered);
+  };
+
   // Handle ABSA Filter Application
   const handleApplyFilter = async (filterData, productsToUse = null) => {
     const { aspects: manualAspects, category } = filterData;
@@ -748,6 +801,10 @@ const ProductRecommendationApp = () => {
       setFilteredProducts(analyzedProducts);
       setShowResults(true);
       setIsFilterModalOpen(false);
+      // keep caret ready for user to edit prompt after tags generation
+      setTimeout(() => {
+        try { inputRef.current?.focus(); } catch {}
+      }, 0);
       
     } catch (error) {
       console.error('[ABSA] Error during analysis:', error);
@@ -1565,8 +1622,13 @@ const ProductRecommendationApp = () => {
           </p>
 
           {/* COMPLETELY NEW SEARCH - MINIMAL IMPLEMENTATION */}
-          <div className="search-container-wrapper">
-            <div className={`search-container ${searchFocused ? 'focused' : ''}`}>
+          <div
+            className="search-container-wrapper"
+            style={{ position: 'relative', zIndex: 20000, pointerEvents: 'auto' }}
+            onClick={() => inputRef.current?.focus()}
+            onPointerDown={() => inputRef.current?.focus()}
+          >
+            <div className={`search-container ${searchFocused ? 'focused' : ''}`} style={{ pointerEvents: 'auto' }}>
               
               {/* Text Search Box - Ultra Simple */}
               <div className="search-box-modern">
@@ -1575,11 +1637,20 @@ const ProductRecommendationApp = () => {
                 </div>
                 
                 <input
+                  id="searchPromptInput"
+                  name="searchPrompt"
                   ref={inputRef}
                   type="text"
+                  inputMode="text"
+                  enterKeyHint="search"
+                  aria-label="Search products"
+                  autoCapitalize="none"
+                  autoCorrect="off"
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
+                  onInput={(e) => setPrompt(e.target.value)}
                   onClick={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => { /* ensure input receives focus */ e.stopPropagation(); }}
                   onFocus={() => {
                     setSearchFocused(true);
                     if (hasHistory) setShowHistory(true);
@@ -1598,11 +1669,15 @@ const ProductRecommendationApp = () => {
                     }
                   }}
                   placeholder="Describe the product you're looking for..."
-                  disabled={isLoading || isRecording || isSpeechProcessing}
+                  disabled={isLoading || isRecording}
                   className="search-input-modern"
+                  style={{ color: '#e5e7eb', caretColor: '#e5e7eb', background: 'transparent', zIndex: 20, pointerEvents: 'auto' }}
                   autoComplete="off"
+                  autoFocus
                   spellCheck="false"
+                  tabIndex={0}
                 />
+                {/* Suggestions moved below the search box to avoid squeezing the input */}
 
                 {prompt && !isLoading && (
                   <button
@@ -1639,6 +1714,16 @@ const ProductRecommendationApp = () => {
                     <ArrowRight size={20} />
                   )}
                 </button>
+              </div>
+
+              {/* Intent assist suggestions (now below the search box) */}
+              <div style={{ width: '100%', marginTop: '0.75rem' }}>
+                <PromptAssistBar prompt={prompt} onApply={(tag) => applyTagFilter(tag)} />
+                {/* Detected tags: union of live prompt tags and extracted aspects from analysis */}
+                <DetectedTagsBar
+                  tags={[...new Set([...(promptTags || []), ...(extractedAspects || [])])]} 
+                  onClick={(tag) => applyTagFilter(tag)}
+                />
               </div>
 
               {/* Voice Search */}
@@ -2022,6 +2107,8 @@ const ProductRecommendationApp = () => {
                     display: 'flex',
                     gap: '0.5rem'
                   }}>
+                    {/* Share button */}
+                    <ShareProductButton product={product} />
                     {/* Favorite Heart Button */}
                     <button
                       onClick={(e) => {
@@ -2199,8 +2286,10 @@ const ProductRecommendationApp = () => {
 
                   {/* Product Name */}
                   <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: 'white', marginBottom: '0.75rem', letterSpacing: '0.01em' }}>
-                    {getProductName(product)}
+                    {product['Product Name'] || getProductName(product)}
                   </div>
+                  {/* Product Tags */}
+                  <ProductTags product={product} onTagClick={applyTagFilter} />
                   
                   {/* Dynamic Product Fields - Display ALL fields from the API */}
                   <div style={{ 
@@ -2257,11 +2346,10 @@ const ProductRecommendationApp = () => {
                     }
                   </div>
 
-                  {/* Price Information (if available) */}
+                  {/* Price (canonical) */}
                   {(() => {
-                    const { sellingPrice, mrp, discount } = getPriceInfo(product);
-                    if (!sellingPrice && !mrp) return null;
-                    
+                    const price = Number(product['Price'] || 0);
+                    if (!price) return null;
                     return (
                       <div style={{ 
                         display: 'flex', 
@@ -2276,34 +2364,12 @@ const ProductRecommendationApp = () => {
                         borderRadius: '0.5rem',
                         border: '1px solid rgba(16, 185, 129, 0.2)'
                       }}>
-                        {mrp && mrp !== sellingPrice && (
-                          <div>
-                            <strong style={{color:'#9ca3af', fontSize: '0.85rem'}}>MRP:</strong>{' '}
-                            <span style={{textDecoration: 'line-through', color: '#9ca3af'}}>
-                              ₹{Number(mrp).toLocaleString()}
-                            </span>
-                          </div>
-                        )}
-                        {sellingPrice && (
-                          <div>
-                            <strong style={{color:'#10b981', fontSize: '0.85rem'}}>Price:</strong>{' '}
-                            <span style={{fontSize: '1.3rem', fontWeight: 'bold', color: '#10b981'}}>
-                              ₹{Number(sellingPrice).toLocaleString()}
-                            </span>
-                          </div>
-                        )}
-                        {discount && (
-                          <div style={{
-                            padding: '0.25rem 0.75rem',
-                            background: 'linear-gradient(135deg, #ef4444, #dc2626)',
-                            borderRadius: '999px',
-                            fontSize: '0.85rem',
-                            fontWeight: 'bold',
-                            color: 'white'
-                          }}>
-                            {discount}% OFF
-                          </div>
-                        )}
+                        <div>
+                          <strong style={{color:'#10b981', fontSize: '0.85rem'}}>Price:</strong>{' '}
+                          <span style={{fontSize: '1.3rem', fontWeight: 'bold', color: '#10b981'}}>
+                            ₹{price.toLocaleString()}
+                          </span>
+                        </div>
                       </div>
                     );
                   })()}
@@ -2326,7 +2392,6 @@ const ProductRecommendationApp = () => {
                           <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
                             <Star size={16} fill="#facc15" color="#facc15" />
                             <strong style={{color:'#facc15'}}>{Number(rating).toFixed(1)}</strong>
-                            <span style={{color:'#9ca3af'}}>/ 5</span>
                           </div>
                         )}
                         {reviewsCount && (
@@ -2338,9 +2403,23 @@ const ProductRecommendationApp = () => {
                     );
                   })()}
 
-                  {/* More Info Button */}
+                  {/* Rating Breakdown (inline preview if data exists) */}
+                  {product.ratingDistribution && (
+                    <div style={{ marginTop: '0.5rem' }}>
+                      <RatingBreakdown
+                        distribution={product.ratingDistribution}
+                        onClick={() => setRatingDistModal(product.ratingDistribution)}
+                      />
+                    </div>
+                  )}
+
+                  {/* More Info Button -> navigate to full details page */}
                   <button
-                    onClick={() => openProductDetails(product)}
+                    onClick={() => {
+                      // also track as viewed
+                      try { addViewedProduct(product); } catch {}
+                      navigate(`/product/${product.id}`, { state: { product } });
+                    }}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -2376,6 +2455,9 @@ const ProductRecommendationApp = () => {
                     <span>More Details</span>
                   </button>
 
+                  {/* Extended specs toggle */}
+                  <ProductSpecsExtended product={product} extractFields={extractProductFields} />
+
                   {/* Review Analysis Details - Shows individual review sentiments */}
                   {product.reviewResults && product.reviewResults.length > 0 && (
                     <ReviewAnalysisDetails product={product} />
@@ -2394,6 +2476,8 @@ const ProductRecommendationApp = () => {
                 </div>
               ))}
             </div>
+            {/* Smart Recommendations */}
+            <SmartRecommendations baseProducts={filteredProducts.slice(0, 2)} allProducts={filteredProducts} />
           </div>
         )}
 
@@ -2412,8 +2496,9 @@ const ProductRecommendationApp = () => {
               {/* Product Comparison Tool Button */}
               <button
                 onClick={() => {
-                  localStorage.setItem('searchResults', JSON.stringify(products));
-                  navigate('/compare');
+                  const list = (filteredProducts && filteredProducts.length > 0) ? filteredProducts : products;
+                  try { localStorage.setItem('searchResults', JSON.stringify(list)); } catch {}
+                  navigate('/compare', { state: { products: list } });
                 }}
                 disabled={products.length < 2}
                 style={{
@@ -2445,6 +2530,7 @@ const ProductRecommendationApp = () => {
                     e.currentTarget.style.boxShadow = 'none';
                   }
                 }}
+                
               >
                 <div style={{
                   display: 'flex',
@@ -2549,10 +2635,12 @@ const ProductRecommendationApp = () => {
                 className="feature-card tilt-card"
                 style={{ animationDelay: `${index * 0.2}s`, cursor: 'pointer' }}
                 onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  if (feature.route === '/') {
+                onClick={() => {
+                  if (feature.route === '/compare') {
+                    const list = (filteredProducts && filteredProducts.length > 0) ? filteredProducts : products;
+                    try { localStorage.setItem('searchResults', JSON.stringify(list)); } catch {}
+                    navigate('/compare', { state: { products: list } });
+                  } else if (feature.route === '/') {
                     goHome();
                   } else {
                     navigate(feature.route);
@@ -2630,6 +2718,8 @@ const ProductRecommendationApp = () => {
       {/* Rendering here exposes the FAB and full-screen comparator without altering other behaviors */}
       <ComparisonButton />
       <ProductComparisonModal />
+      {/* Recently Viewed: fixed bottom drawer (hidden when empty) */}
+      <RecentlyViewedPanel />
 
       {/* Footer */}
       <footer className="footer">
@@ -2651,6 +2741,11 @@ const ProductRecommendationApp = () => {
         isOpen={isModalOpen}
         onClose={closeProductDetailsModal}
       />
+
+      {/* Rating Breakdown Modal */}
+      {ratingDistModal && (
+        <RatingBreakdownModal distribution={ratingDistModal} onClose={() => setRatingDistModal(null)} />
+      )}
 
       {/* Toast Notification */}
       <Toast

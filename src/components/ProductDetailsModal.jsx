@@ -1,8 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
-import { X, Star, ShoppingCart, Package, Award, Zap, TrendingUp, TrendingDown, Heart, Info, ExternalLink } from 'lucide-react';
-import { SentimentBadgeList } from './SentimentBadge';
+import { X, Star, Package, Award, Zap, ExternalLink } from 'lucide-react';
 import ReviewAnalysisDetails from './ReviewAnalysisDetails';
+import { useRecentlyViewed } from '../hooks/useRecentlyViewed';
 
 /**
  * Product Details Modal
@@ -11,7 +12,10 @@ import ReviewAnalysisDetails from './ReviewAnalysisDetails';
  * Fully accessible and mobile-friendly
  */
 const ProductDetailsModal = ({ product, isOpen, onClose }) => {
+  const navigate = useNavigate();
   const modalRef = useRef(null);
+  const { addViewedProduct } = useRecentlyViewed();
+  const [showAllFields, setShowAllFields] = useState(false);
 
   // Handle escape key press
   useEffect(() => {
@@ -39,6 +43,13 @@ const ProductDetailsModal = ({ product, isOpen, onClose }) => {
       onClose();
     }
   };
+
+  // Track recently viewed when opened
+  useEffect(() => {
+    if (isOpen && product) {
+      addViewedProduct(product);
+    }
+  }, [isOpen, product, addViewedProduct]);
 
   // Focus trap for accessibility
   useEffect(() => {
@@ -80,7 +91,8 @@ const ProductDetailsModal = ({ product, isOpen, onClose }) => {
 
   // Helper functions to extract fields dynamically from any product structure
   const getProductName = () => {
-    return product.product_name || product.name || product.title || product.productName || 'Product Details';
+    // Prefer API field "Product Name" while keeping existing fallbacks
+    return product['Product Name'] || product.product_name || product.name || product.title || product.productName || 'Product Details';
   };
 
   const getProductImage = () => {
@@ -88,21 +100,16 @@ const ProductDetailsModal = ({ product, isOpen, onClose }) => {
   };
 
   const getPriceData = () => {
-    const rawSell = product.selling_price ?? product.price ?? product.sellingPrice ?? 
-                    product.current_price ?? product.salePrice ?? 0;
-    const rawMrp = product.mrp ?? product.original_price ?? product.originalPrice ?? 
-                   product.list_price ?? product.listPrice ?? rawSell;
-    const rawDisc = product.discount ?? 0;
+    // Use only the single API field "Price" and ignore other variants
     const toNum = (v) => {
       if (v === null || v === undefined) return 0;
       if (typeof v === 'number') return v;
       const num = Number(String(v).replace(/[^0-9.\-]/g, ''));
       return Number.isFinite(num) ? num : 0;
     };
-    const sellingPrice = toNum(rawSell);
-    const mrp = toNum(rawMrp);
-    const discount = toNum(rawDisc);
-    return { sellingPrice, mrp, discount };
+    const rawPrice = product['Price'];
+    const price = toNum(rawPrice);
+    return { price };
   };
 
   const getRatingData = () => {
@@ -123,9 +130,10 @@ const ProductDetailsModal = ({ product, isOpen, onClose }) => {
       'id', '_id', 'product_id', 'productId',
       'reviews', 'review', 'Reviews', 'Review', 'product_reviews', 'productReviews',
       'sentiments', 'aspectScores', 'reviewResults', 'analysisError',
-      'product_name', 'name', 'title', 'productName',
+      'product_name', 'name', 'title', 'Product Name',
       'image', 'img', 'imageUrl', 'product_image', 'thumbnail',
-      'selling_price', 'price', 'sellingPrice', 'current_price', 'salePrice',
+      // Exclude all kinds of price fields, including the API's "Price"
+      'Price', 'selling_price', 'price', 'sellingPrice', 'current_price', 'salePrice',
       'mrp', 'original_price', 'originalPrice', 'list_price', 'listPrice',
       'discount', 'rating', 'averageRating', 'average_rating', 'stars',
       'reviews_count', 'reviewsCount', 'total_reviews', 'totalReviews', 'numReviews',
@@ -137,9 +145,10 @@ const ProductDetailsModal = ({ product, isOpen, onClose }) => {
     console.log('[ProductDetailsModal] Extracting displayable fields...');
     
     for (const [key, value] of Object.entries(product)) {
-      // Skip excluded keys and review-related fields
-      if (excludeKeys.includes(key) || key.toLowerCase().includes('review') || key.toLowerCase().includes('sentiment')) {
-        console.log(`  Skipping field: ${key} (excluded or review/sentiment related)`);
+      const lower = key.toLowerCase();
+      // Skip excluded keys and review/sentiment/price related fields
+      if (excludeKeys.includes(key) || lower.includes('review') || lower.includes('sentiment') || lower.includes('price')) {
+        console.log(`  Skipping field: ${key} (excluded or review/sentiment/price related)`);
         continue;
       }
       
@@ -186,24 +195,31 @@ const ProductDetailsModal = ({ product, isOpen, onClose }) => {
   // Extract all dynamic data
   const productName = getProductName();
   const productImage = getProductImage();
-  const { sellingPrice, mrp, discount } = getPriceData();
+  const { price } = getPriceData();
   const { rating, reviewsCount } = getRatingData();
   const displayableFields = getDisplayableFields();
+
+  // All fields (including those normally excluded) for power users
+  const allFields = useMemo(() => {
+    try {
+      return Object.entries(product).map(([key, value]) => ({
+        key,
+        value: typeof value === 'object' ? JSON.stringify(value) : String(value ?? ''),
+        type: typeof value
+      }));
+    } catch {
+      return [];
+    }
+  }, [product]);
   
   console.log('[ProductDetailsModal] Extracted data:', {
     productName,
     hasImage: !!productImage,
-    sellingPrice,
-    mrp,
-    discount,
+    price,
     rating,
     reviewsCount,
     displayableFieldsCount: displayableFields.length
   });
-  
-  // Calculate discount
-  const discountedAmount = mrp - sellingPrice;
-  const discountPercentage = mrp > 0 ? ((discountedAmount / mrp) * 100).toFixed(0) : discount;
 
   const modalContent = (
     <div
@@ -371,66 +387,33 @@ const ProductDetailsModal = ({ product, isOpen, onClose }) => {
 
             {/* Right Column: Pricing & Action Buttons */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-              {/* Pricing Card */}
-              <div style={{
-                background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.1), rgba(59, 130, 246, 0.1))',
-                padding: '1.5rem',
-                borderRadius: '1rem',
-                border: '1px solid rgba(168, 85, 247, 0.2)'
-              }}>
-                <div style={{ marginBottom: '1rem' }}>
-                  <div style={{ fontSize: '0.875rem', color: '#9ca3af', marginBottom: '0.5rem' }}>
-                    Special Price
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '1rem', flexWrap: 'wrap' }}>
-                    <span style={{
-                      fontSize: '2.5rem',
-                      fontWeight: 900,
-                      background: 'linear-gradient(135deg, #a855f7, #3b82f6)',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                      backgroundClip: 'text'
-                    }}>
-                      ₹{sellingPrice.toLocaleString()}
-                    </span>
-                    {mrp > sellingPrice && (
-                      <>
-                        <span style={{
-                          fontSize: '1.25rem',
-                          color: '#9ca3af',
-                          textDecoration: 'line-through'
-                        }}>
-                          ₹{mrp.toLocaleString()}
-                        </span>
-                        <span style={{
-                          fontSize: '1rem',
-                          color: '#10b981',
-                          fontWeight: 600
-                        }}>
-                          {discountPercentage}% off
-                        </span>
-                      </>
-                    )}
+              {/* Pricing Card: show only the single Price if present */}
+              {price > 0 && (
+                <div style={{
+                  background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.1), rgba(59, 130, 246, 0.1))',
+                  padding: '1.5rem',
+                  borderRadius: '1rem',
+                  border: '1px solid rgba(168, 85, 247, 0.2)'
+                }}>
+                  <div style={{ marginBottom: '1rem' }}>
+                    <div style={{ fontSize: '0.875rem', color: '#9ca3af', marginBottom: '0.5rem' }}>
+                      Price
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '1rem', flexWrap: 'wrap' }}>
+                      <span style={{
+                        fontSize: '2.5rem',
+                        fontWeight: 900,
+                        background: 'linear-gradient(135deg, #a855f7, #3b82f6)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        backgroundClip: 'text'
+                      }}>
+                        ₹{price.toLocaleString()}
+                      </span>
+                    </div>
                   </div>
                 </div>
-
-                {mrp > sellingPrice && (
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    padding: '0.75rem',
-                    background: 'rgba(16, 185, 129, 0.1)',
-                    borderRadius: '0.5rem',
-                    color: '#10b981',
-                    fontSize: '0.875rem',
-                    fontWeight: 600
-                  }}>
-                    <TrendingDown size={18} />
-                    <span>You Save ₹{discountedAmount.toLocaleString()}</span>
-                  </div>
-                )}
-              </div>
+              )}
 
               {/* Rating Display */}
               {(rating > 0 || reviewsCount > 0) && (
@@ -531,9 +514,9 @@ const ProductDetailsModal = ({ product, isOpen, onClose }) => {
                       textAlign: 'right', 
                       marginLeft: '1rem',
                       fontWeight: 500,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
+                      overflow: 'auto',
+                      wordBreak: 'break-word',
+                      whiteSpace: 'normal',
                       maxWidth: '60%'
                     }}>
                       {type === 'number' && originalKey.toLowerCase().includes('price')
@@ -549,6 +532,48 @@ const ProductDetailsModal = ({ product, isOpen, onClose }) => {
               </div>
             </div>
           )}
+
+          {/* Show All Fields Toggle */}
+          <div style={{
+            marginBottom: '2rem',
+            background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.08), rgba(99, 102, 241, 0.08))',
+            padding: '1rem',
+            borderRadius: '1rem',
+            border: '1px solid rgba(139, 92, 246, 0.25)'
+          }}>
+            <button
+              onClick={() => setShowAllFields(v => !v)}
+              style={{
+                padding: '0.5rem 0.75rem',
+                background: 'rgba(139,92,246,0.2)',
+                border: '1px solid rgba(139,92,246,0.4)',
+                color: '#c4b5fd',
+                borderRadius: '0.5rem',
+                fontWeight: 700,
+                cursor: 'pointer'
+              }}
+            >
+              {showAllFields ? 'Hide raw product data' : 'Show all product fields'}
+            </button>
+            {showAllFields && (
+              <div style={{
+                marginTop: '0.75rem',
+                maxHeight: '260px',
+                overflowY: 'auto',
+                padding: '0.5rem',
+                background: 'rgba(17,24,39,0.6)',
+                borderRadius: '0.5rem',
+                border: '1px solid rgba(255,255,255,0.08)'
+              }}>
+                {allFields.map(({ key, value, type }) => (
+                  <div key={key} style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: '0.75rem', padding: '0.5rem 0', borderBottom: '1px dashed rgba(255,255,255,0.06)' }}>
+                    <div style={{ color: '#9ca3af', fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{key}</div>
+                    <div style={{ color: '#e5e7eb', fontSize: '0.9rem', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{value}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* Review Analysis Details */}
           {product.reviewResults && product.reviewResults.length > 0 && (
@@ -566,9 +591,9 @@ const ProductDetailsModal = ({ product, isOpen, onClose }) => {
           }}>
             <button
               onClick={() => {
-                // Close modal and navigate to full details page
-                onClose();
-                window.open(`/product/${product.id}`, '_blank');
+                // Close modal and navigate in-app to full details page
+                try { onClose(); } catch {}
+                navigate(`/product/${product.id}`, { state: { product } });
               }}
               style={{
                 flex: 1,

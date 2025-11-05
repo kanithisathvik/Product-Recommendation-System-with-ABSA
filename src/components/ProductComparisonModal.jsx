@@ -11,6 +11,18 @@ import { SentimentBadgeList } from './SentimentBadge';
 const ProductComparisonModal = () => {
   const { selectedProducts, isModalOpen, closeModal, removeFromComparison, clearComparison } = useComparison();
 
+  // Helpers to normalize fields for display
+  const toNum = (v) => {
+    if (v === null || v === undefined) return null;
+    if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+    const n = Number(String(v).replace(/[^0-9.\-]/g, ''));
+    return Number.isFinite(n) ? n : null;
+  };
+
+  const getProductName = (p) => p?.['Product Name'] || p?.name || p?.product_name || p?.title || 'Product';
+  const getImage = (p) => p?.image || p?.img || p?.imageUrl || p?.product_image || p?.thumbnail || '';
+  const getSinglePrice = (p) => toNum(p?.['Price'] ?? p?.price ?? p?.selling_price ?? p?.sellingPrice ?? p?.current_price);
+
   if (!isModalOpen) return null;
 
   /**
@@ -68,6 +80,34 @@ const ProductComparisonModal = () => {
 
   const commonAspects = getCommonAspects();
 
+  // Build dynamic technical specification keys from selected products
+  const specExclude = new Set([
+    'id','_id','category','Product Name','product_name','name','title','productName','Product_Name','Name',
+    'image','img','imageUrl','image_url','product_image','thumbnail',
+    'Price','price','selling_price','sellingPrice','current_price','salePrice','originalPrice','original_price','mrp','list_price','listPrice','discount',
+    'rating','Rating','product_rating','averageRating','stars','reviews','reviews_count','reviewsCount','total_reviews','numReviews',
+    'sentiments','sentimentDetails','sentimentScore','aspectScores','reviewResults','reviewsAnalyzed','totalReviews','match'
+  ]);
+
+  const toTitle = (k) => k
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (m) => m.toUpperCase());
+
+  const collectSpecKeys = () => {
+    const keys = new Set();
+    selectedProducts.forEach(p => {
+      Object.keys(p || {}).forEach(k => {
+        const lower = k.toLowerCase();
+        if (specExclude.has(k)) return;
+        if (lower.includes('review') || lower.includes('sentiment')) return;
+        keys.add(k);
+      });
+    });
+    return Array.from(keys);
+  };
+
+  const specKeys = collectSpecKeys();
+
   return (
     <div className="fixed inset-0 z-50 bg-black bg-opacity-50 backdrop-blur-sm overflow-y-auto">
       <div className="min-h-screen p-4 md:p-8">
@@ -117,8 +157,8 @@ const ProductComparisonModal = () => {
                         {/* Product Image */}
                         <div className="relative w-full h-40 rounded-lg overflow-hidden bg-gray-100">
                           <img
-                            src={product.image}
-                            alt={product.name}
+                            src={getImage(product)}
+                            alt={getProductName(product)}
                             className="w-full h-full object-cover"
                           />
                           <button
@@ -133,7 +173,7 @@ const ProductComparisonModal = () => {
                         {/* Product Name */}
                         <div className="text-center">
                           <h3 className="font-semibold text-gray-900 line-clamp-2">
-                            {product.name}
+                            {getProductName(product)}
                           </h3>
                           <p className="text-sm text-gray-600 mt-1">{product.category}</p>
                         </div>
@@ -156,19 +196,21 @@ const ProductComparisonModal = () => {
                     <td key={product.id} className="p-4 text-center border-l border-gray-200">
                       <div className="flex flex-col items-center gap-1">
                         <span className="text-2xl font-bold text-purple-600">
-                          {product.price}
+                          {(() => {
+                            const p = getSinglePrice(product);
+                            return p !== null ? `₹${p.toLocaleString()}` : '—';
+                          })()}
                         </span>
-                        {product.originalPrice && (
-                          <span className="text-sm text-gray-500 line-through">
-                            {product.originalPrice}
-                          </span>
-                        )}
                         {index > 0 && (
                           <div className="text-xs mt-1">
-                            vs. Product 1: {calculatePriceDiff(
-                              parseFloat(selectedProducts[0].price.replace('$', '')),
-                              parseFloat(product.price.replace('$', ''))
-                            )}
+                            vs. Product 1: {(() => {
+                              const base = getSinglePrice(selectedProducts[0]);
+                              const current = getSinglePrice(product);
+                              if (base && current) {
+                                return calculatePriceDiff(base, current);
+                              }
+                              return <span className="text-gray-600">N/A</span>;
+                            })()}
                           </div>
                         )}
                       </div>
@@ -198,6 +240,35 @@ const ProductComparisonModal = () => {
                     </td>
                   ))}
                 </tr>
+
+                {/* Dynamic Technical Specifications */}
+                {specKeys.map((key) => (
+                  <tr key={key} className="border-t border-gray-100">
+                    <td className="sticky left-0 z-10 bg-white p-4 font-semibold text-gray-700 border-r-2 border-gray-200">
+                      {toTitle(key)}
+                    </td>
+                    {selectedProducts.map((product) => {
+                      const val = product?.[key];
+                      let display;
+                      if (val === null || val === undefined || val === '') {
+                        display = <span className="text-gray-400">—</span>;
+                      } else if (Array.isArray(val)) {
+                        display = val.join(', ');
+                      } else if (typeof val === 'object') {
+                        display = JSON.stringify(val);
+                      } else if (typeof val === 'boolean') {
+                        display = val ? 'Yes' : 'No';
+                      } else {
+                        display = String(val);
+                      }
+                      return (
+                        <td key={product.id} className="p-4 text-center border-l border-gray-200">
+                          <span className="text-gray-800">{display}</span>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
 
                 {/* Match Score Row (if available) */}
                 {selectedProducts.some(p => p.match) && (

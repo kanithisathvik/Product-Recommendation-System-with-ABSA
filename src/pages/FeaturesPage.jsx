@@ -1,7 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { Sparkles, Mic, GitCompare, Heart, Filter, Star, Clock, Info, ArrowRight } from 'lucide-react';
+import ProductTags from '../components/ProductTags';
+import SmartRecommendations from '../components/SmartRecommendations';
+import RatingBreakdown from '../components/RatingBreakdown';
+import RatingBreakdownModal from '../components/RatingBreakdownModal';
+import PromptAssistBar from '../components/PromptAssistBar';
+import ShareProductButton from '../components/ShareProductButton';
 
 const FeaturesPage = () => {
   const navigate = useNavigate();
@@ -16,6 +22,25 @@ const FeaturesPage = () => {
     { icon: Clock, text: 'Search History', desc: 'Access previous searches and re-run them', gradient: 'from-indigo-500 to-blue-500', route: '/history' },
     { icon: Info, text: 'Product Details Modal', desc: 'Comprehensive product info and reviews', gradient: 'from-cyan-500 to-teal-500', route: '/' }
   ];
+
+  const demoProduct = {
+    id: 'demo-1',
+    product_name: 'Demo Laptop Pro 14',
+    brand: 'DemoBrand',
+    category: 'ultraportable',
+    selling_price: 99999,
+    rating: 4.6,
+    sentiments: {
+      'battery life': { positive: 22, negative: 3 },
+      'display': { positive: 18, negative: 4 },
+      'performance': { positive: 20, negative: 5 },
+      'build quality': { positive: 15, negative: 2 }
+    },
+    ratingDistribution: { 5: 120, 4: 45, 3: 12, 2: 4, 1: 3 }
+  };
+
+  const [demoPrompt, setDemoPrompt] = useState('light thin laptop with great battery');
+  const [rbModal, setRbModal] = useState(null);
 
   return (
     <div style={{
@@ -100,6 +125,54 @@ const FeaturesPage = () => {
             );
           })}
         </div>
+
+        {/* Demo Components */}
+        <div style={{
+          marginTop: '3rem',
+          textAlign: 'left',
+          background: 'rgba(31,41,55,0.6)',
+          borderRadius: '1rem',
+          padding: '1.5rem',
+          border: '1px solid rgba(255,255,255,0.08)'
+        }}>
+          <h3 style={{ color: 'white', fontWeight: 800, marginBottom: '1rem' }}>Lab Components</h3>
+
+          {/* Prompt Assist Demo */}
+          <div style={{ marginBottom: '1.25rem' }}>
+            <div style={{ color: '#9ca3af', marginBottom: '0.25rem' }}>Prompt Assist</div>
+            <input value={demoPrompt} onChange={(e)=>setDemoPrompt(e.target.value)} placeholder="type prompt" style={{ width:'100%', padding:'0.5rem', borderRadius:'0.5rem', border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.05)', color:'#e5e7eb' }} />
+            <PromptAssistBar prompt={demoPrompt} onApply={()=>{}} />
+          </div>
+
+          {/* ProductTags Demo */}
+          <div style={{ marginBottom: '1.25rem' }}>
+            <div style={{ color: '#9ca3af', marginBottom: '0.25rem' }}>Product Tags</div>
+            <div style={{ color: 'white', fontWeight: 700 }}>{demoProduct.product_name}</div>
+            <ProductTags product={demoProduct} onTagClick={()=>{}} />
+          </div>
+
+          {/* Rating Breakdown Demo */}
+          <div style={{ marginBottom: '1.25rem' }}>
+            <div style={{ color: '#9ca3af', marginBottom: '0.25rem' }}>Rating Breakdown</div>
+            <RatingBreakdown distribution={demoProduct.ratingDistribution} onClick={()=> setRbModal(demoProduct.ratingDistribution)} />
+          </div>
+
+          {/* Smart Recommendations Demo (uses demo data as both base and pool) */}
+          <div style={{ marginBottom: '1.25rem' }}>
+            <div style={{ color: '#9ca3af', marginBottom: '0.25rem' }}>Smart Recommendations</div>
+            <SmartRecommendations baseProducts={[demoProduct]} allProducts={[demoProduct]} />
+          </div>
+
+          {/* Share Product Demo */}
+          <div style={{ marginBottom: '1.25rem' }}>
+            <div style={{ color: '#9ca3af', marginBottom: '0.25rem' }}>Share Product</div>
+            <ShareProductButton product={demoProduct} />
+          </div>
+        </div>
+
+        {rbModal && (
+          <RatingBreakdownModal distribution={rbModal} onClose={()=> setRbModal(null)} />
+        )}
 
         <div style={{ textAlign: 'center', marginTop: '2rem' }}>
           <button type="button" onClick={() => navigate('/')} style={{

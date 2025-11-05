@@ -34,7 +34,7 @@ export const FavoritesProvider = ({ children }) => {
         return prev;
       }
       // Get product name dynamically
-      const productName = product.product_name || product.name || product.title || product.productName || 'Product';
+  const productName = product['Product Name'] || product.product_name || product.name || product.title || product.productName || 'Product';
       showToast(`${productName} added to favorites!`);
       const newFavorites = [...prev, product];
       console.log('[FavoritesContext] New favorites count:', newFavorites.length);
@@ -47,7 +47,7 @@ export const FavoritesProvider = ({ children }) => {
       const product = prev.find(p => p.id === productId);
       if (product) {
         // Get product name dynamically
-        const productName = product.product_name || product.name || product.title || product.productName || 'Product';
+  const productName = product['Product Name'] || product.product_name || product.name || product.title || product.productName || 'Product';
         showToast(`${productName} removed from favorites`);
       }
       return prev.filter(p => p.id !== productId);

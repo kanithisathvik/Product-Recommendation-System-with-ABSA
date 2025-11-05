@@ -21,7 +21,7 @@ const FavoritesPage = () => {
 
   // Helper functions to extract product data with different field name variations
   const getProductName = (product) => {
-    const nameFields = ['product_name', 'name', 'title', 'productName', 'Product_Name', 'Name'];
+    const nameFields = ['Product Name', 'product_name', 'name', 'title', 'productName', 'Product_Name', 'Name'];
     for (const field of nameFields) {
       if (product[field]) return product[field];
     }
@@ -499,9 +499,9 @@ const FavoritesPage = () => {
                   </div>
                 )}
 
-                {/* More Info Button */}
+                {/* More Info Button -> navigate to full details page */}
                 <button
-                  onClick={() => openProductDetails(product)}
+                  onClick={() => navigate(`/product/${product.id}`, { state: { product } })}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
