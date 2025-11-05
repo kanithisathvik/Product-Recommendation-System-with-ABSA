@@ -1,5 +1,5 @@
 import React from 'react';
-import { GitCompare, X } from 'lucide-react';
+import { GitCompare, X, Package } from 'lucide-react';
 import { useComparison } from '../context/ComparisonContext';
 
 /**
@@ -12,6 +12,8 @@ const ComparisonButton = () => {
 
   // Only show when we have 2 or more products
   if (count < 2) return null;
+
+  const getDisplayName = (p) => p?.product_name || p?.name || p?.title || 'Product';
 
   return (
     <div className="fixed bottom-8 right-8 z-40 animate-fadeIn">
@@ -53,13 +55,20 @@ const ComparisonButton = () => {
             key={product.id}
             className="bg-white rounded-lg shadow-lg p-2 flex items-center gap-2 text-sm transform transition-all hover:scale-105"
           >
-            <img
-              src={product.image}
-              alt={product.name}
-              className="w-10 h-10 object-cover rounded"
-            />
+            {product.image ? (
+              <img
+                src={product.image}
+                alt={getDisplayName(product)}
+                className="w-10 h-10 object-cover rounded"
+                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+              />
+            ) : (
+              <div className="w-10 h-10 rounded bg-gray-200 flex items-center justify-center text-gray-500">
+                <Package className="w-5 h-5" />
+              </div>
+            )}
             <span className="flex-1 text-gray-800 text-xs line-clamp-1">
-              {product.name}
+              {getDisplayName(product)}
             </span>
           </div>
         ))}

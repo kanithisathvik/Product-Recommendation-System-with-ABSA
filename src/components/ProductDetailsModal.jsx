@@ -88,18 +88,33 @@ const ProductDetailsModal = ({ product, isOpen, onClose }) => {
   };
 
   const getPriceData = () => {
-    const sellingPrice = product.selling_price || product.price || product.sellingPrice || 
-                        product.current_price || product.salePrice || 0;
-    const mrp = product.mrp || product.original_price || product.originalPrice || 
-                product.list_price || product.listPrice || sellingPrice;
-    const discount = product.discount || 0;
+    const rawSell = product.selling_price ?? product.price ?? product.sellingPrice ?? 
+                    product.current_price ?? product.salePrice ?? 0;
+    const rawMrp = product.mrp ?? product.original_price ?? product.originalPrice ?? 
+                   product.list_price ?? product.listPrice ?? rawSell;
+    const rawDisc = product.discount ?? 0;
+    const toNum = (v) => {
+      if (v === null || v === undefined) return 0;
+      if (typeof v === 'number') return v;
+      const num = Number(String(v).replace(/[^0-9.\-]/g, ''));
+      return Number.isFinite(num) ? num : 0;
+    };
+    const sellingPrice = toNum(rawSell);
+    const mrp = toNum(rawMrp);
+    const discount = toNum(rawDisc);
     return { sellingPrice, mrp, discount };
   };
 
   const getRatingData = () => {
-    const rating = product.rating || product.averageRating || product.average_rating || product.stars || 0;
-    const reviewsCount = product.reviews_count || product.reviewsCount || product.total_reviews || 
-                        product.totalReviews || product.numReviews || 0;
+    const toNum = (v) => {
+      if (v === null || v === undefined) return 0;
+      if (typeof v === 'number') return v;
+      const num = Number(String(v).replace(/[^0-9.\-]/g, ''));
+      return Number.isFinite(num) ? num : 0;
+    };
+    const rating = toNum(product.rating ?? product.averageRating ?? product.average_rating ?? product.stars);
+    const reviewsCount = toNum(product.reviews_count ?? product.reviewsCount ?? product.total_reviews ?? 
+                        product.totalReviews ?? product.numReviews);
     return { rating, reviewsCount };
   };
 

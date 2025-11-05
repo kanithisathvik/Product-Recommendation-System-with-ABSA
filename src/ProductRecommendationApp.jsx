@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Search, ShoppingBag, Sparkles, TrendingUp, Star, ArrowRight, Zap, Filter, Heart, ExternalLink, Mic, MicOff, GitCompare, Info, Clock, Trash2 } from 'lucide-react';
 import Navbar from './components/Navbar';
+import ComparisonButton from './components/ComparisonButton';
+import ProductComparisonModal from './components/ProductComparisonModal';
 import AspectFilterModal from './components/AspectFilterModal';
 import ProductDetailsModal from './components/ProductDetailsModal';
 import ThemeToggle from './components/ThemeToggle';
@@ -268,11 +270,51 @@ const ProductRecommendationApp = () => {
 
   // Helper to get product name from various possible field names
   const getProductName = (product) => {
-    const nameFields = ['product_name', 'name', 'title', 'productName', 'Product_Name', 'Name'];
+    const nameFields = [
+      'product_name', 'name', 'title', 'productName', 'Product_Name', 'Name',
+      'productTitle', 'title_str', 'model', 'Model', 'Product', 'ITEM_NAME'
+    ];
     for (const field of nameFields) {
-      if (product[field]) return product[field];
+      if (product[field] !== undefined && product[field] !== null && String(product[field]).trim() !== '') {
+        return String(product[field]).trim();
+      }
     }
-    return 'Unknown Product';
+    // Fallbacks: brand + series, or id
+    const combo = `${product.brand || ''} ${product.series || ''}`.trim();
+    if (combo) return combo;
+    return product.id ? `Product ${product.id}` : 'Unknown Product';
+  };
+
+  // Normalize incoming product shape from API/mock
+  const normalizeIncomingProduct = (product, idx = 0) => {
+    const clonedProduct = JSON.parse(JSON.stringify(product));
+    // Ensure string id
+    const rawId = clonedProduct.id ?? clonedProduct._id ?? `product-${idx}`;
+    clonedProduct.id = String(rawId);
+    // Ensure a consistent name field
+    const name = getProductName(clonedProduct);
+    clonedProduct.product_name = name;
+    if (!clonedProduct.name) clonedProduct.name = name;
+    // Coerce common numeric fields
+    const toNum = (v) => {
+      if (v === null || v === undefined) return null;
+      if (typeof v === 'number') return v;
+      const num = Number(String(v).replace(/[^0-9.\-]/g, ''));
+      return Number.isFinite(num) ? num : null;
+    };
+    // Prices
+    clonedProduct.selling_price = toNum(clonedProduct.selling_price ?? clonedProduct.sellingPrice ?? clonedProduct.price ?? clonedProduct.current_price);
+    clonedProduct.mrp = toNum(clonedProduct.mrp ?? clonedProduct.original_price ?? clonedProduct.originalPrice ?? clonedProduct.list_price ?? clonedProduct.listPrice);
+    if (clonedProduct.discount !== null && clonedProduct.discount !== undefined) {
+      clonedProduct.discount = toNum(clonedProduct.discount);
+    }
+    // Rating & reviews
+    if (clonedProduct.rating !== undefined) clonedProduct.rating = toNum(clonedProduct.rating);
+    if (clonedProduct.reviews_count === undefined) {
+      const rc = clonedProduct.reviewsCount ?? clonedProduct.total_reviews ?? clonedProduct.totalReviews ?? clonedProduct.numReviews;
+      clonedProduct.reviews_count = toNum(rc);
+    }
+    return clonedProduct;
   };
 
   // Helper to get product image
@@ -432,16 +474,16 @@ const ProductRecommendationApp = () => {
       const data = await response.json();
       const results = data.results || [];
 
-      const productsFromAPI = results.length > 0 ? 
-        results.map((product, idx) => {
-          const clonedProduct = JSON.parse(JSON.stringify(product));
-          clonedProduct.id = clonedProduct.id || `product-${idx}`;
-          return clonedProduct;
-        }) : 
+      const productsFromAPIRaw = results.length > 0 ? 
+        results : 
         (Array.isArray(data) ? data : (data.products || []));
+
+      const productsFromAPI = (productsFromAPIRaw || []).map((p, idx) => normalizeIncomingProduct(p, idx));
       
       // Fallback to mock results if API returns nothing
-      const finalProducts = (productsFromAPI && productsFromAPI.length > 0) ? productsFromAPI : mockResults;
+      const finalProducts = (productsFromAPI && productsFromAPI.length > 0)
+        ? productsFromAPI
+        : mockResults.map((p, idx) => normalizeIncomingProduct(p, idx));
 
       setProducts(finalProducts);
       setFilteredProducts(finalProducts);
@@ -481,7 +523,7 @@ const ProductRecommendationApp = () => {
       console.error('[API] Error fetching products:', error);
       // Graceful fallback to mock results when API fails
       try {
-        const finalProducts = mockResults.map((p, idx) => ({ ...p, id: p.id || `mock-${idx}` }));
+  const finalProducts = mockResults.map((p, idx) => normalizeIncomingProduct(p, idx));
         setProducts(finalProducts);
         setFilteredProducts(finalProducts);
         setShowResults(true);
@@ -2497,14 +2539,26 @@ const ProductRecommendationApp = () => {
           </div>
         )}
 
-        {/* Enhanced Features */}
+        {/* Enhanced Features (clickable navigation) */}
         {route === 'home' && (
           <div className="features">
             {features.map((feature, index) => (
-              <div 
-                key={index} 
+              <button
+                key={index}
+                type="button"
                 className="feature-card tilt-card"
-                style={{ animationDelay: `${index * 0.2}s` }}
+                style={{ animationDelay: `${index * 0.2}s`, cursor: 'pointer' }}
+                onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (feature.route === '/') {
+                    goHome();
+                  } else {
+                    navigate(feature.route);
+                  }
+                }}
+                aria-label={feature.text}
               >
                 <div className={`feature-icon bg-gradient-to-br ${feature.gradient}`}>
                   <feature.icon className="icon" />
@@ -2512,7 +2566,7 @@ const ProductRecommendationApp = () => {
                 <h3>{feature.text}</h3>
                 <p>{feature.desc}</p>
                 <div className="card-shine"></div>
-              </div>
+              </button>
             ))}
           </div>
         )}
@@ -2571,6 +2625,11 @@ const ProductRecommendationApp = () => {
           </div>
         )}
       </main>
+
+      {/* Product Comparison overlay UI */}
+      {/* Rendering here exposes the FAB and full-screen comparator without altering other behaviors */}
+      <ComparisonButton />
+      <ProductComparisonModal />
 
       {/* Footer */}
       <footer className="footer">

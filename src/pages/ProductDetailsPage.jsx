@@ -12,8 +12,8 @@ const ProductDetailsPage = () => {
 
   useEffect(() => {
     // Get product from localStorage
-    const searchResults = JSON.parse(localStorage.getItem('searchResults') || '[]');
-    const foundProduct = searchResults.find(p => p.id === id);
+  const searchResults = JSON.parse(localStorage.getItem('searchResults') || '[]');
+  const foundProduct = searchResults.find(p => String(p.id) === String(id));
     
     if (foundProduct) {
       setProduct(foundProduct);

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, GitCompare, X, Star, TrendingUp, TrendingDown, Minus, Check, Package } from 'lucide-react';
+import { ArrowLeft, GitCompare, X, Star, TrendingUp, TrendingDown, Minus, Check } from 'lucide-react';
 import { SentimentBadgeList } from '../components/SentimentBadge';
 import { useTheme } from '../context/ThemeContext';
 
@@ -11,29 +11,142 @@ const ComparisonPage = () => {
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [availableProducts, setAvailableProducts] = useState([]);
 
+  // Normalize incoming product objects from different sources/shapes
+  const normalizeProduct = (p, idx = 0) => {
+    if (!p || typeof p !== 'object') return null;
+
+    const id = p.id ?? p.product_id ?? `product-${idx}`;
+    const product_name = p.product_name ?? p.name ?? p.title ?? 'Product';
+    const image = p.image ?? p.imageUrl ?? p.thumbnail ?? '';
+
+    // Derive numeric selling price from various shapes (number or string like "$129.99" or "₹12,999")
+    let selling_price;
+    if (typeof p.selling_price === 'number') {
+      selling_price = p.selling_price;
+    } else {
+      const priceSource =
+        typeof p.price === 'number' ? p.price :
+        (typeof p.price === 'string' ? p.price :
+        (typeof p.current_price === 'number' ? p.current_price :
+        (typeof p.current_price === 'string' ? p.current_price : undefined)));
+      if (typeof priceSource === 'number') {
+        selling_price = priceSource;
+      } else if (typeof priceSource === 'string') {
+        const digits = priceSource.replace(/[^\d.]/g, '');
+        selling_price = digits ? parseFloat(digits) : 0;
+      } else {
+        selling_price = 0;
+      }
+    }
+
+    // Rating and reviews
+    const rating = (typeof p.rating === 'number')
+      ? p.rating
+      : (typeof p.rating_value === 'number')
+        ? p.rating_value
+        : (typeof p.rating === 'string' ? parseFloat(p.rating) : undefined);
+
+    const reviews_count =
+      (typeof p.reviews_count === 'number') ? p.reviews_count :
+      (typeof p.reviews === 'number') ? p.reviews :
+      (typeof p.reviewCount === 'number') ? p.reviewCount : 0;
+
+    const discount = (typeof p.discount === 'number') ? p.discount : 0;
+
+    const sentimentScore = (typeof p.sentimentScore === 'number')
+      ? p.sentimentScore
+      : (typeof p?.sentimentAnalysis?.overallScore === 'number')
+        ? p.sentimentAnalysis.overallScore
+        : undefined;
+
+    return {
+      ...p,
+      id,
+      product_name,
+      image,
+      selling_price,
+      rating,
+      reviews_count,
+      discount,
+      sentimentScore
+    };
+  };
+
   useEffect(() => {
     // Get products from navigation state or localStorage
-    const productsFromState = location.state?.products || [];
-    const productsFromStorage = JSON.parse(localStorage.getItem('searchResults') || '[]');
-    
-    setAvailableProducts(productsFromStorage);
-    
-    // Pre-select products if passed from home page
-    if (productsFromState.length > 0) {
-      setSelectedProducts(productsFromState.slice(0, 2));
+    const productsFromStateRaw = location.state?.products || [];
+    const productsFromStorageRaw = JSON.parse(localStorage.getItem('searchResults') || '[]');
+
+    // Normalize all available products so the page works regardless of source shape
+    const normalizedAvailable = (Array.isArray(productsFromStorageRaw) ? productsFromStorageRaw : [])
+      .map((p, i) => normalizeProduct(p, i))
+      .filter(Boolean);
+    setAvailableProducts(normalizedAvailable);
+
+    // Pre-select products if passed from home page (normalize too)
+    if (Array.isArray(productsFromStateRaw) && productsFromStateRaw.length > 0) {
+      const normalizedSelected = productsFromStateRaw
+        .slice(0, 2)
+        .map((p, i) => normalizeProduct(p, i))
+        .filter(Boolean);
+      setSelectedProducts(normalizedSelected);
+    }
+
+    // If no available products from storage, try fetching from Data API using last search query
+    if (!normalizedAvailable || normalizedAvailable.length === 0) {
+      try {
+        const historyRaw = JSON.parse(localStorage.getItem('product_search_history') || '[]');
+        const lastQuery = Array.isArray(historyRaw) && historyRaw.length > 0
+          ? (typeof historyRaw[0] === 'string' ? historyRaw[0] : historyRaw[0]?.query)
+          : null;
+
+        const fallbackQuery = lastQuery && typeof lastQuery === 'string' && lastQuery.trim().length > 0
+          ? lastQuery.trim()
+          : 'smartphone';
+
+        const controller = new AbortController();
+        const fetchData = async () => {
+          const res = await fetch('https://model-hddb.vercel.app/search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query: fallbackQuery }),
+            signal: controller.signal
+          });
+          if (!res.ok) throw new Error(`API error ${res.status}`);
+          const data = await res.json();
+          const results = Array.isArray(data?.results) ? data.results : (Array.isArray(data) ? data : (data?.products || []));
+          const normalizedFromAPI = results.map((p, i) => normalizeProduct(p, i)).filter(Boolean);
+          if (normalizedFromAPI.length > 0) {
+            setAvailableProducts(normalizedFromAPI);
+            // Do not override selectedProducts unless empty
+            if (selectedProducts.length === 0 && normalizedFromAPI.length >= 2) {
+              setSelectedProducts([normalizedFromAPI[0], normalizedFromAPI[1]]);
+            }
+            // Cache for continuity
+            try { localStorage.setItem('searchResults', JSON.stringify(normalizedFromAPI)); } catch {}
+          }
+        };
+        fetchData().catch(() => {/* silent fallback */});
+        return () => controller.abort();
+      } catch {
+        // ignore and keep empty availableProducts
+      }
     }
   }, [location.state]);
 
   const handleProductSelect = (product) => {
+    // Ensure product is normalized before selection (in case called with raw item)
+    const normalized = normalizeProduct(product);
+    if (!normalized) return;
     // If already selected, remove it
-    if (selectedProducts.find(p => p?.id === product.id)) {
-      setSelectedProducts(selectedProducts.filter(p => p?.id !== product.id));
+    if (selectedProducts.find(p => p?.id === normalized.id)) {
+      setSelectedProducts(selectedProducts.filter(p => p?.id !== normalized.id));
     } else if (selectedProducts.length < 2) {
       // Add to selection if less than 2 products selected
-      setSelectedProducts([...selectedProducts, product]);
+      setSelectedProducts([...selectedProducts, normalized]);
     } else {
       // Replace the first product if 2 are already selected
-      setSelectedProducts([product, selectedProducts[1]]);
+      setSelectedProducts([normalized, selectedProducts[1]]);
     }
   };
 
@@ -46,11 +159,14 @@ const ComparisonPage = () => {
   };
 
   const getComparisonValue = (val1, val2, higherIsBetter = true) => {
-    if (val1 === val2) return 'equal';
+    const n1 = typeof val1 === 'number' ? val1 : Number(val1);
+    const n2 = typeof val2 === 'number' ? val2 : Number(val2);
+    if (Number.isNaN(n1) || Number.isNaN(n2)) return 'equal';
+    if (n1 === n2) return 'equal';
     if (higherIsBetter) {
-      return val1 > val2 ? 'better' : 'worse';
+      return n1 > n2 ? 'better' : 'worse';
     } else {
-      return val1 < val2 ? 'better' : 'worse';
+      return n1 < n2 ? 'better' : 'worse';
     }
   };
 
@@ -183,16 +299,6 @@ const ComparisonPage = () => {
                 borderRadius: '0.75rem',
                 border: '2px solid rgba(168,85,247,0.5)'
               }}>
-                <img
-                  src={product.image}
-                  alt={product.product_name}
-                  style={{
-                    width: '60px',
-                    height: '60px',
-                    objectFit: 'cover',
-                    borderRadius: '0.5rem'
-                  }}
-                />
                 <div style={{ flex: 1 }}>
                   <div style={{
                     color: 'white',
@@ -312,37 +418,20 @@ const ComparisonPage = () => {
                       </div>
                     )}
 
-                    {/* Product Image */}
-                    <div style={{
-                      width: '100%',
-                      height: '200px',
-                      background: 'rgba(15,23,42,0.8)',
-                      borderRadius: '0.75rem',
-                      marginBottom: '1rem',
-                      overflow: 'hidden'
-                    }}>
-                      {product.image ? (
-                        <img
-                          src={product.image}
-                          alt={product.product_name}
-                          style={{
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'cover'
-                          }}
-                        />
-                      ) : (
-                        <div style={{
-                          width: '100%',
-                          height: '100%',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: '#9ca3af'
-                        }}>
-                          <Package size={48} />
-                        </div>
-                      )}
+                    {/* Product Title (no images) */}
+                    <div style={{ marginBottom: '0.75rem' }}>
+                      <div style={{
+                        color: 'white',
+                        fontSize: '1.05rem',
+                        fontWeight: 700,
+                        lineHeight: '1.3',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden'
+                      }}>
+                        {product.product_name}
+                      </div>
                     </div>
 
                     {/* Product Info */}
@@ -464,7 +553,7 @@ const ComparisonPage = () => {
               Detailed Comparison Report
             </h2>
 
-            {/* Images */}
+            {/* Overview (no images) */}
             <div style={{
               display: 'grid',
               gridTemplateColumns: '1fr 1fr',
@@ -479,33 +568,6 @@ const ComparisonPage = () => {
                   padding: '1.5rem',
                   border: '2px solid rgba(168,85,247,0.3)'
                 }}>
-                  {product.image ? (
-                    <img
-                      src={product.image}
-                      alt={product.product_name}
-                      style={{
-                        width: '100%',
-                        height: '250px',
-                        objectFit: 'cover',
-                        borderRadius: '0.75rem',
-                        marginBottom: '1rem'
-                      }}
-                    />
-                  ) : (
-                    <div style={{
-                      width: '100%',
-                      height: '250px',
-                      background: 'rgba(15,23,42,0.8)',
-                      borderRadius: '0.75rem',
-                      marginBottom: '1rem',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: '#9ca3af'
-                    }}>
-                      <Package size={60} />
-                    </div>
-                  )}
                   <h3 style={{
                     color: 'white',
                     fontSize: '1.25rem',
@@ -523,15 +585,15 @@ const ComparisonPage = () => {
                     marginBottom: '0.5rem'
                   }}>
                     <Star size={18} fill="#facc15" />
-                    <span style={{ fontWeight: 600 }}>{product.rating}</span>
-                    <span style={{ color: '#9ca3af' }}>({product.reviews_count} reviews)</span>
+                    <span style={{ fontWeight: 600 }}>{product.rating ?? '—'}</span>
+                    <span style={{ color: '#9ca3af' }}>({(product.reviews_count ?? 0).toLocaleString()} reviews)</span>
                   </div>
                   <div style={{
                     fontSize: '1.5rem',
                     color: '#10b981',
                     fontWeight: 700
                   }}>
-                    ₹{product.selling_price.toLocaleString()}
+                    ₹{(product.selling_price ?? 0).toLocaleString()}
                     {product.discount > 0 && (
                       <span style={{
                         fontSize: '1rem',
@@ -1075,7 +1137,7 @@ const ComparisonRow = ({ label, value1, value2, status1, status2, icon }) => (
       fontSize: '1rem'
     }}>
       {icon && status1 && icon(status1)}
-      <span>{value1}</span>
+      <span>{(value1 ?? value1 === 0) ? value1 : '—'}</span>
     </div>
     <div style={{
       display: 'flex',
@@ -1085,7 +1147,7 @@ const ComparisonRow = ({ label, value1, value2, status1, status2, icon }) => (
       fontSize: '1rem'
     }}>
       {icon && status2 && icon(status2)}
-      <span>{value2}</span>
+      <span>{(value2 ?? value2 === 0) ? value2 : '—'}</span>
     </div>
   </div>
 );
