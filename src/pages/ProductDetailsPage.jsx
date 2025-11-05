@@ -50,7 +50,7 @@ const ProductDetailsPage = () => {
         minHeight: '100vh',
         background: isDark
           ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)'
-          : 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+          : 'linear-gradient(135deg, #f8fafc 0%, #eef2ff 50%, #e2e8f0 100%)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -66,17 +66,20 @@ const ProductDetailsPage = () => {
     const n = Number(v);
     return Number.isFinite(n) ? n : null;
   };
-  // Canonical API-aligned single price
-  const sell = num(product['Price']);
+  const mrp = num(product.mrp);
+  const sell = num(product.selling_price ?? product.price);
+  const discount = num(product.discount);
   const rating = num(product.rating);
   const reviewsCount = num(product.reviews_count);
+  const discountedPrice = mrp != null && sell != null ? Math.max(mrp - sell, 0) : null;
+  const discountPercentage = mrp && discountedPrice != null ? Math.round((discountedPrice / mrp) * 100) : null;
 
   return (
     <div className={isDark ? 'dark' : ''} style={{
       minHeight: '100vh',
       background: isDark
         ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)'
-        : 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+        : 'linear-gradient(135deg, #f8fafc 0%, #eef2ff 50%, #e2e8f0 100%)',
       position: 'relative',
       overflow: 'auto'
     }}>
@@ -107,10 +110,10 @@ const ProductDetailsPage = () => {
             alignItems: 'center',
             gap: '0.5rem',
             padding: '0.75rem 1.5rem',
-            background: 'rgba(31,41,55,0.8)',
-            border: '2px solid rgba(168,85,247,0.5)',
+            background: isDark ? 'rgba(31,41,55,0.8)' : 'rgba(255,255,255,0.9)',
+            border: isDark ? '2px solid rgba(168,85,247,0.5)' : '1px solid rgba(15,23,42,0.12)',
             borderRadius: '0.75rem',
-            color: 'white',
+            color: isDark ? 'white' : '#111827',
             fontSize: '1rem',
             fontWeight: 600,
             cursor: 'pointer',
@@ -119,11 +122,11 @@ const ProductDetailsPage = () => {
             backdropFilter: 'blur(10px)'
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'rgba(168,85,247,0.3)';
+            e.currentTarget.style.background = isDark ? 'rgba(168,85,247,0.3)' : '#ffffff';
             e.currentTarget.style.transform = 'translateX(-5px)';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'rgba(31,41,55,0.8)';
+            e.currentTarget.style.background = isDark ? 'rgba(31,41,55,0.8)' : 'rgba(255,255,255,0.9)';
             e.currentTarget.style.transform = 'translateX(0)';
           }}
         >
@@ -133,11 +136,11 @@ const ProductDetailsPage = () => {
 
         {/* Main Content */}
         <div style={{
-          background: 'rgba(31,41,55,0.6)',
+          background: isDark ? 'rgba(31,41,55,0.6)' : 'rgba(255,255,255,0.95)',
           borderRadius: '1.5rem',
           padding: '3rem',
           backdropFilter: 'blur(20px)',
-          border: '1px solid rgba(255,255,255,0.1)',
+          border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(15,23,42,0.08)',
           boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
         }}>
           {/* Top Section - Image and Main Info */}
@@ -149,7 +152,7 @@ const ProductDetailsPage = () => {
           }}>
             {/* Left - Image */}
             <div style={{
-              background: 'rgba(15,23,42,0.8)',
+              background: isDark ? 'rgba(15,23,42,0.8)' : 'rgba(255,255,255,0.98)',
               borderRadius: '1rem',
               padding: '2rem',
               border: '2px solid rgba(168,85,247,0.3)'
@@ -157,7 +160,7 @@ const ProductDetailsPage = () => {
               {product.image ? (
                 <img
                   src={product.image}
-                  alt={product['Product Name'] || product.product_name}
+                  alt={product.product_name}
                   style={{
                     width: '100%',
                     height: '400px',
@@ -187,11 +190,11 @@ const ProductDetailsPage = () => {
               <h1 style={{
                 fontSize: '2.5rem',
                 fontWeight: 900,
-                color: 'white',
+                color: isDark ? 'white' : '#111827',
                 marginBottom: '1rem',
                 lineHeight: 1.2
               }}>
-                {product['Product Name'] || product.product_name || product.name || 'Product Details'}
+                {product.product_name}
               </h1>
 
               {/* Brand & Series */}
@@ -230,7 +233,7 @@ const ProductDetailsPage = () => {
                 gap: '1rem',
                 marginBottom: '2rem',
                 padding: '1rem',
-                background: 'rgba(15,23,42,0.6)',
+                background: isDark ? 'rgba(15,23,42,0.6)' : 'rgba(15,23,42,0.06)',
                 borderRadius: '0.75rem',
                 border: '1px solid rgba(250,204,21,0.3)'
               }}>
@@ -247,23 +250,28 @@ const ProductDetailsPage = () => {
                   }}>
                     {rating != null ? rating : '—'}
                   </span>
-                  {/* Removed "/ 5" suffix as per requirement */}
+                  <span style={{
+                    fontSize: '1rem',
+                    color: isDark ? '#9ca3af' : '#6b7280'
+                  }}>
+                    / 5
+                  </span>
                 </div>
                 <div style={{
                   height: '40px',
                   width: '1px',
-                  background: 'rgba(255,255,255,0.1)'
+                  background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(15,23,42,0.12)'
                 }} />
                 <div style={{
-                  color: '#d1d5db',
+                  color: isDark ? '#d1d5db' : '#111827',
                   fontSize: '1rem'
                 }}>
                   <div style={{ fontWeight: 600 }}>{reviewsCount != null ? reviewsCount.toLocaleString() : '—'}</div>
-                  <div style={{ fontSize: '0.875rem', color: '#9ca3af' }}>Reviews</div>
+                  <div style={{ fontSize: '0.875rem', color: isDark ? '#9ca3af' : '#6b7280' }}>Reviews</div>
                 </div>
               </div>
 
-              {/* Price Section (canonical) */}
+              {/* Price Section */}
               <div style={{
                 padding: '2rem',
                 background: 'linear-gradient(135deg, rgba(16,185,129,0.2), rgba(52,211,153,0.2))',
@@ -278,6 +286,37 @@ const ProductDetailsPage = () => {
                   marginBottom: '0.5rem'
                 }}>
                   {sell != null ? `₹${sell.toLocaleString()}` : '—'}
+                </div>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '1rem',
+                  fontSize: '1.1rem'
+                }}>
+                  <span style={{
+                    color: '#9ca3af',
+                    textDecoration: 'line-through'
+                  }}>
+                    MRP: {mrp != null ? `₹${mrp.toLocaleString()}` : '—'}
+                  </span>
+                  <span style={{
+                    padding: '0.25rem 0.75rem',
+                    background: '#ef4444',
+                    color: 'white',
+                    borderRadius: '0.375rem',
+                    fontWeight: 700,
+                    fontSize: '1rem'
+                  }}>
+                    {discount != null ? `${discount}% OFF` : ''}
+                  </span>
+                </div>
+                <div style={{
+                  marginTop: '0.5rem',
+                  color: '#10b981',
+                  fontSize: '1rem',
+                  fontWeight: 600
+                }}>
+                  {discountedPrice != null ? `You save: ₹${discountedPrice.toLocaleString()}` : ''}
                 </div>
               </div>
 
@@ -349,16 +388,16 @@ const ProductDetailsPage = () => {
           {/* Sentiment Analysis Section */}
           {product.sentiments && Object.keys(product.sentiments).length > 0 && (
             <div style={{
-              background: 'rgba(15,23,42,0.6)',
+              background: isDark ? 'rgba(15,23,42,0.6)' : 'rgba(255,255,255,0.95)',
               borderRadius: '1rem',
               padding: '2rem',
               marginBottom: '2rem',
-              border: '1px solid rgba(168,85,247,0.3)'
+              border: isDark ? '1px solid rgba(168,85,247,0.3)' : '1px solid rgba(15,23,42,0.08)'
             }}>
               <h2 style={{
                 fontSize: '1.75rem',
                 fontWeight: 700,
-                color: 'white',
+                color: isDark ? 'white' : '#111827',
                 marginBottom: '1.5rem',
                 display: 'flex',
                 alignItems: 'center',
@@ -440,15 +479,15 @@ const ProductDetailsPage = () => {
 
           {/* Specifications Table */}
           <div style={{
-            background: 'rgba(15,23,42,0.6)',
+            background: isDark ? 'rgba(15,23,42,0.6)' : 'rgba(255,255,255,0.95)',
             borderRadius: '1rem',
             padding: '2rem',
-            border: '1px solid rgba(59,130,246,0.3)'
+            border: isDark ? '1px solid rgba(59,130,246,0.3)' : '1px solid rgba(15,23,42,0.08)'
           }}>
             <h2 style={{
               fontSize: '1.75rem',
               fontWeight: 700,
-              color: 'white',
+              color: isDark ? 'white' : '#111827',
               marginBottom: '1.5rem',
               display: 'flex',
               alignItems: 'center',
@@ -462,15 +501,15 @@ const ProductDetailsPage = () => {
               display: 'grid',
               gap: '1rem'
             }}>
-              <SpecRow label="Display Size" value={product.standing_screen_display_size || '—'} />
-              <SpecRow label="Screen Resolution" value={product.screen_resolution || '—'} />
-              <SpecRow label="Processor" value={product.processor_type || product.processor || '—'} />
-              <SpecRow label="RAM" value={product.ram_gb != null ? `${product.ram_gb} GB` : '—'} />
-              <SpecRow label="Storage" value={product.storage_gb != null ? `${product.storage_gb} GB SSD` : '—'} />
-              <SpecRow label="Graphics" value={product.graphics_coprocessor || product.gpu || '—'} />
-              <SpecRow label="Operating System" value={product.operating_system || '—'} />
-              <SpecRow label="Color" value={product.colour || product.color || '—'} />
-              <SpecRow label="Form Factor" value={product.form_factor || '—'} />
+              <SpecRow isDark={isDark} label="Display Size" value={product.standing_screen_display_size || '—'} />
+              <SpecRow isDark={isDark} label="Screen Resolution" value={product.screen_resolution || '—'} />
+              <SpecRow isDark={isDark} label="Processor" value={product.processor_type || product.processor || '—'} />
+              <SpecRow isDark={isDark} label="RAM" value={product.ram_gb != null ? `${product.ram_gb} GB` : '—'} />
+              <SpecRow isDark={isDark} label="Storage" value={product.storage_gb != null ? `${product.storage_gb} GB SSD` : '—'} />
+              <SpecRow isDark={isDark} label="Graphics" value={product.graphics_coprocessor || product.gpu || '—'} />
+              <SpecRow isDark={isDark} label="Operating System" value={product.operating_system || '—'} />
+              <SpecRow isDark={isDark} label="Color" value={product.colour || product.color || '—'} />
+              <SpecRow isDark={isDark} label="Form Factor" value={product.form_factor || '—'} />
             </div>
           </div>
         </div>
@@ -480,18 +519,18 @@ const ProductDetailsPage = () => {
 };
 
 // Helper component for specification rows
-const SpecRow = ({ label, value }) => (
+const SpecRow = ({ label, value, isDark }) => (
   <div style={{
     display: 'grid',
     gridTemplateColumns: '250px 1fr',
     gap: '2rem',
     padding: '1rem',
-    background: 'rgba(15,23,42,0.4)',
+    background: isDark ? 'rgba(15,23,42,0.4)' : 'rgba(15,23,42,0.04)',
     borderRadius: '0.5rem',
-    border: '1px solid rgba(255,255,255,0.05)'
+    border: isDark ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(15,23,42,0.08)'
   }}>
     <div style={{
-      color: '#9ca3af',
+      color: isDark ? '#9ca3af' : '#374151',
       fontSize: '1rem',
       fontWeight: 600,
       textTransform: 'uppercase',
@@ -500,7 +539,7 @@ const SpecRow = ({ label, value }) => (
       {label}
     </div>
     <div style={{
-      color: 'white',
+      color: isDark ? 'white' : '#111827',
       fontSize: '1.1rem',
       fontWeight: 500
     }}>

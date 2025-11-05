@@ -71,7 +71,7 @@ const SearchHistoryPage = () => {
       minHeight: '100vh',
       background: isDark
         ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)'
-        : 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+        : 'linear-gradient(135deg, #f8fafc 0%, #eef2ff 50%, #e2e8f0 100%)',
       padding: '2rem',
       position: 'relative',
       overflow: 'auto'
@@ -102,10 +102,10 @@ const SearchHistoryPage = () => {
             alignItems: 'center',
             gap: '0.5rem',
             padding: '0.75rem 1.5rem',
-            background: 'rgba(31,41,55,0.8)',
-            border: '2px solid rgba(168,85,247,0.5)',
+            background: isDark ? 'rgba(31,41,55,0.8)' : 'rgba(255,255,255,0.9)',
+            border: isDark ? '2px solid rgba(168,85,247,0.5)' : '1px solid rgba(15,23,42,0.12)',
             borderRadius: '0.75rem',
-            color: 'white',
+            color: isDark ? 'white' : '#111827',
             fontSize: '1rem',
             fontWeight: 600,
             cursor: 'pointer',
@@ -114,11 +114,11 @@ const SearchHistoryPage = () => {
             backdropFilter: 'blur(10px)'
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'rgba(168,85,247,0.3)';
+            e.currentTarget.style.background = isDark ? 'rgba(168,85,247,0.3)' : '#ffffff';
             e.currentTarget.style.transform = 'translateX(-5px)';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'rgba(31,41,55,0.8)';
+            e.currentTarget.style.background = isDark ? 'rgba(31,41,55,0.8)' : 'rgba(255,255,255,0.9)';
             e.currentTarget.style.transform = 'translateX(0)';
           }}
         >
@@ -152,7 +152,7 @@ const SearchHistoryPage = () => {
           </div>
           <p style={{
             fontSize: '1.1rem',
-            color: '#9ca3af',
+            color: isDark ? '#9ca3af' : '#4b5563',
             maxWidth: '600px',
             margin: '0 auto'
           }}>
@@ -218,22 +218,22 @@ const SearchHistoryPage = () => {
               <div
                 key={index}
                 style={{
-                  background: 'rgba(31,41,55,0.6)',
+                  background: isDark ? 'rgba(31,41,55,0.6)' : 'rgba(255,255,255,0.9)',
                   borderRadius: '1rem',
                   padding: '1.5rem',
                   backdropFilter: 'blur(10px)',
-                  border: '1px solid rgba(255,255,255,0.1)',
+                  border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(15,23,42,0.08)',
                   transition: 'all 0.3s',
                   cursor: 'pointer'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(31,41,55,0.8)';
-                  e.currentTarget.style.borderColor = 'rgba(168,85,247,0.5)';
+                  e.currentTarget.style.background = isDark ? 'rgba(31,41,55,0.8)' : '#ffffff';
+                  e.currentTarget.style.borderColor = isDark ? 'rgba(168,85,247,0.5)' : 'rgba(15,23,42,0.15)';
                   e.currentTarget.style.transform = 'translateX(10px)';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'rgba(31,41,55,0.6)';
-                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
+                  e.currentTarget.style.background = isDark ? 'rgba(31,41,55,0.6)' : 'rgba(255,255,255,0.9)';
+                  e.currentTarget.style.borderColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(15,23,42,0.08)';
                   e.currentTarget.style.transform = 'translateX(0)';
                 }}
               >
@@ -264,7 +264,7 @@ const SearchHistoryPage = () => {
                     <div style={{ flex: 1 }}>
                       {/* Search Query */}
                       <div style={{
-                        color: 'white',
+                        color: isDark ? 'white' : '#111827',
                         fontSize: '1.25rem',
                         fontWeight: 600,
                         marginBottom: '0.5rem'
@@ -277,7 +277,7 @@ const SearchHistoryPage = () => {
                         display: 'flex',
                         alignItems: 'center',
                         gap: '0.5rem',
-                        color: '#9ca3af',
+                        color: isDark ? '#9ca3af' : '#6b7280',
                         fontSize: '0.875rem',
                         marginBottom: '0.75rem'
                       }}>
@@ -453,14 +453,14 @@ const SearchHistoryPage = () => {
           <div style={{
             textAlign: 'center',
             padding: '4rem 2rem',
-            background: 'rgba(31,41,55,0.6)',
+            background: isDark ? 'rgba(31,41,55,0.6)' : 'rgba(255,255,255,0.9)',
             borderRadius: '1rem',
             backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(255,255,255,0.1)'
+            border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(15,23,42,0.08)'
           }}>
             <Clock size={60} color="#9ca3af" style={{ marginBottom: '1rem' }} />
             <h3 style={{
-              color: '#d1d5db',
+              color: isDark ? '#d1d5db' : '#111827',
               fontSize: '1.5rem',
               fontWeight: 600,
               marginBottom: '0.5rem'
@@ -468,7 +468,7 @@ const SearchHistoryPage = () => {
               No Search History Yet
             </h3>
             <p style={{
-              color: '#9ca3af',
+              color: isDark ? '#9ca3af' : '#6b7280',
               fontSize: '1rem',
               marginBottom: '2rem'
             }}>
@@ -510,10 +510,10 @@ const SearchHistoryPage = () => {
           <div style={{
             marginTop: '3rem',
             padding: '2rem',
-            background: 'rgba(31,41,55,0.6)',
+            background: isDark ? 'rgba(31,41,55,0.6)' : 'rgba(255,255,255,0.9)',
             borderRadius: '1rem',
             backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(255,255,255,0.1)'
+            border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(15,23,42,0.08)'
           }}>
             <div style={{
               display: 'flex',
@@ -523,7 +523,7 @@ const SearchHistoryPage = () => {
             }}>
               <TrendingUp size={24} color="#10b981" />
               <h3 style={{
-                color: 'white',
+                color: isDark ? 'white' : '#111827',
                 fontSize: '1.25rem',
                 fontWeight: 700,
                 margin: 0
@@ -564,13 +564,13 @@ const SearchHistoryPage = () => {
 const StatCard = ({ label, value, color }) => (
   <div style={{
     padding: '1.5rem',
-    background: 'rgba(15,23,42,0.6)',
+    background: 'rgba(255,255,255,0.06)',
     borderRadius: '0.75rem',
     border: `2px solid ${color}40`,
     textAlign: 'center'
   }}>
     <div style={{
-      color: '#9ca3af',
+      color: '#6b7280',
       fontSize: '0.875rem',
       marginBottom: '0.5rem',
       textTransform: 'uppercase',

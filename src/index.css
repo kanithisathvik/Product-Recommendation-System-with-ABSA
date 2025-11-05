@@ -751,6 +751,23 @@ body {
   box-shadow: 0 8px 25px rgba(168, 85, 247, 0.2);
 }
 
+/* Light theme variants for prompt chips */
+html:not(.dark) .examples p {
+  color: #475569;
+}
+html:not(.dark) .floating-btn {
+  background: #ffffff;
+  border: 1px solid rgba(15,23,42,0.08);
+  color: #111827;
+  box-shadow: 0 2px 12px rgba(17,24,39,0.06);
+}
+html:not(.dark) .floating-btn:hover {
+  background: #f8fafc;
+  border-color: rgba(59,130,246,0.35);
+  color: #0f172a;
+  box-shadow: 0 8px 30px rgba(17,24,39,0.10);
+}
+
 /* Results Section */
 .results-section {
   margin: 4rem 0;
@@ -1999,12 +2016,12 @@ h2, h3, h4, h5, h6 {
 
 .feature-card h3,
 .product-card h3 {
-  color: #ffffff;
+  color: #111827;
 }
 
 .feature-card p,
 .product-card p {
-  color: #cbd5e1;
+  color: #4b5563;
 }
 
 /* Enhanced Responsive Design */
@@ -2591,5 +2608,75 @@ h2, h3, h4, h5, h6 {
 .nav-links,
 .brand {
   pointer-events: auto !important;
+}
+
+/* ============================================
+   Light Theme Enhancements and Coherence
+   ============================================ */
+html:not(.dark) body {
+  background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 50%, #e2e8f0 100%);
+  color: #1f2937;
+}
+
+html:not(.dark) .navbar {
+  background: rgba(255, 255, 255, 0.9);
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+
+/* Light variant for modern search */
+html:not(.dark) .search-box-modern {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(168, 85, 247, 0.15);
+  box-shadow: 0 6px 24px rgba(17, 24, 39, 0.06);
+}
+
+html:not(.dark) .search-box-modern:hover {
+  border-color: rgba(168, 85, 247, 0.25);
+  box-shadow: 0 10px 36px rgba(17, 24, 39, 0.08);
+}
+
+html:not(.dark) .search-input-modern {
+  color: #111827 !important;
+}
+
+html:not(.dark) .search-input-modern::placeholder {
+  color: #6b7280;
+}
+
+html:not(.dark) .clear-btn {
+  background: rgba(17, 24, 39, 0.06);
+  color: #6b7280;
+}
+
+html:not(.dark) .clear-btn:hover {
+  background: rgba(239, 68, 68, 0.08);
+  color: #dc2626;
+}
+
+/* Feature and product cards: light hover animation and elevation */
+html:not(.dark) .feature-card,
+html:not(.dark) .product-card {
+  background: rgba(255, 255, 255, 0.98);
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.06);
+}
+
+html:not(.dark) .feature-card:hover,
+html:not(.dark) .product-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 40px rgba(99, 102, 241, 0.18);
+}
+
+/* Stats block and footer coherence */
+html:not(.dark) .stats {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+/* Badge light tune (About/hero) */
+html:not(.dark) .badge {
+  background: rgba(99, 102, 241, 0.12);
+  border-color: rgba(99, 102, 241, 0.25);
+  color: #4f46e5;
 }
 

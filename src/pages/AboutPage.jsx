@@ -13,7 +13,7 @@ const AboutPage = () => {
       minHeight: '100vh',
       background: isDark 
         ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)'
-        : 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+        : 'linear-gradient(135deg, #f8fafc 0%, #eef2ff 50%, #e2e8f0 100%)',
       padding: '2rem',
       position: 'relative'
     }}>
@@ -30,10 +30,10 @@ const AboutPage = () => {
         <div style={{
           background: isDark 
             ? 'linear-gradient(135deg, rgba(30,41,59,0.95) 0%, rgba(99,102,241,0.1) 100%)'
-            : 'linear-gradient(135deg, rgba(31,41,55,0.95) 0%, rgba(59,130,246,0.1) 100%)',
+            : 'linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(59,130,246,0.06) 100%)',
           padding: '2.5rem',
           borderRadius: '1.5rem',
-          border: '1px solid rgba(168,85,247,0.3)',
+          border: isDark ? '1px solid rgba(168,85,247,0.3)' : '1px solid rgba(15,23,42,0.08)',
           marginBottom: '2rem',
           boxShadow: '0 10px 40px rgba(168,85,247,0.15)'
         }}>
@@ -51,7 +51,7 @@ const AboutPage = () => {
           <p style={{
             fontSize: '1.1rem',
             lineHeight: 1.8,
-            color: isDark ? '#e2e8f0' : '#d1d5db',
+            color: isDark ? '#e2e8f0' : '#374151',
             marginBottom: '1rem'
           }}>
             The Advanced Product Recommendation System leverages AI and NLP to deliver personalized, aspect-aware product recommendations. By implementing Aspect-Based Sentiment Analysis (ABSA), it extracts nuanced insights from reviews and matches them with customer requirements.
@@ -62,10 +62,10 @@ const AboutPage = () => {
         <div style={{
           background: isDark 
             ? 'linear-gradient(135deg, rgba(30,41,59,0.95) 0%, rgba(168,85,247,0.1) 100%)'
-            : 'linear-gradient(135deg, rgba(31,41,55,0.95) 0%, rgba(168,85,247,0.1) 100%)',
+            : 'linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(168,85,247,0.06) 100%)',
           padding: '2.5rem',
           borderRadius: '1.5rem',
-          border: '1px solid rgba(168,85,247,0.3)',
+          border: isDark ? '1px solid rgba(168,85,247,0.3)' : '1px solid rgba(15,23,42,0.08)',
           marginBottom: '2rem',
           boxShadow: '0 10px 40px rgba(168,85,247,0.15)'
         }}>
@@ -83,7 +83,7 @@ const AboutPage = () => {
           <p style={{
             fontSize: '1.1rem',
             lineHeight: 1.8,
-            color: isDark ? '#e2e8f0' : '#d1d5db',
+            color: isDark ? '#e2e8f0' : '#374151',
             marginBottom: '1rem'
           }}>
             Traditional e-commerce platforms struggle to interpret semantic user queries and subjective quality requirements like "good battery life" or "excellent display quality". This leads to poor matches and user frustration.
@@ -91,7 +91,7 @@ const AboutPage = () => {
           <p style={{
             fontSize: '1.1rem',
             lineHeight: 1.8,
-            color: isDark ? '#e2e8f0' : '#d1d5db'
+            color: isDark ? '#e2e8f0' : '#374151'
           }}>
             Existing systems underuse rich, aspect-specific insights hidden in reviews.
           </p>
@@ -101,10 +101,10 @@ const AboutPage = () => {
         <div style={{
           background: isDark 
             ? 'linear-gradient(135deg, rgba(30,41,59,0.95) 0%, rgba(52,211,153,0.1) 100%)'
-            : 'linear-gradient(135deg, rgba(31,41,55,0.95) 0%, rgba(52,211,153,0.1) 100%)',
+            : 'linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(52,211,153,0.06) 100%)',
           padding: '2.5rem',
           borderRadius: '1.5rem',
-          border: '1px solid rgba(52,211,153,0.3)',
+          border: isDark ? '1px solid rgba(52,211,153,0.3)' : '1px solid rgba(15,23,42,0.08)',
           marginBottom: '2rem',
           boxShadow: '0 10px 40px rgba(52,211,153,0.15)'
         }}>
@@ -122,7 +122,7 @@ const AboutPage = () => {
           <ul style={{
             fontSize: '1.05rem',
             lineHeight: 1.9,
-            color: isDark ? '#e2e8f0' : '#d1d5db',
+            color: isDark ? '#e2e8f0' : '#374151',
             paddingLeft: '1.5rem',
             marginBottom: '1.5rem'
           }}>
@@ -148,10 +148,10 @@ const AboutPage = () => {
         <div style={{
           background: isDark 
             ? 'linear-gradient(135deg, rgba(30,41,59,0.95) 0%, rgba(99,102,241,0.1) 100%)'
-            : 'linear-gradient(135deg, rgba(31,41,55,0.95) 0%, rgba(99,102,241,0.1) 100%)',
+            : 'linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(99,102,241,0.06) 100%)',
           padding: '2rem',
           borderRadius: '1.5rem',
-          border: '1px solid rgba(99,102,241,0.3)',
+          border: isDark ? '1px solid rgba(99,102,241,0.3)' : '1px solid rgba(15,23,42,0.08)',
           marginBottom: '2rem',
           boxShadow: '0 10px 40px rgba(99,102,241,0.15)'
         }}>
@@ -169,7 +169,7 @@ const AboutPage = () => {
           <ul style={{
             fontSize: '1rem',
             lineHeight: 1.9,
-            color: isDark ? '#e2e8f0' : '#d1d5db',
+            color: isDark ? '#e2e8f0' : '#374151',
             paddingLeft: '1.5rem'
           }}>
             <li>Integrate multiple e-commerce APIs</li>

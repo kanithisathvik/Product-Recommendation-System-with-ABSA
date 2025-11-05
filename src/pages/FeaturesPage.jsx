@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTheme } from '../context/ThemeContext';
 import Navbar from '../components/Navbar';
 import { Sparkles, Mic, GitCompare, Heart, Filter, Star, Clock, Info, ArrowRight } from 'lucide-react';
 import ProductTags from '../components/ProductTags';
@@ -11,6 +12,7 @@ import ShareProductButton from '../components/ShareProductButton';
 
 const FeaturesPage = () => {
   const navigate = useNavigate();
+  const { isDark } = useTheme();
 
   const features = [
     { icon: Sparkles, text: 'AI-Powered Search', desc: 'Natural language search with intelligent recommendations', gradient: 'from-purple-500 to-pink-500', route: '/' },
@@ -43,9 +45,11 @@ const FeaturesPage = () => {
   const [rbModal, setRbModal] = useState(null);
 
   return (
-    <div style={{
+    <div className={isDark ? 'dark' : ''} style={{
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)',
+      background: isDark
+        ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)'
+        : 'linear-gradient(135deg, #f8fafc 0%, #eef2ff 50%, #e0e7ff 100%)',
       padding: '2rem'
     }}>
       <Navbar />
@@ -74,9 +78,11 @@ const FeaturesPage = () => {
                 onClick={() => navigate(feature.route)}
                 style={{
                   padding: '2rem',
-                  background: 'linear-gradient(135deg, rgba(31,41,55,0.95) 0%, rgba(59,130,246,0.1) 100%)',
+                  background: isDark
+                    ? 'linear-gradient(135deg, rgba(31,41,55,0.95) 0%, rgba(59,130,246,0.1) 100%)'
+                    : 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(59,130,246,0.06) 100%)',
                   borderRadius: '1.5rem',
-                  border: '2px solid rgba(168,85,247,0.3)',
+                  border: isDark ? '2px solid rgba(168,85,247,0.3)' : '2px solid rgba(99,102,241,0.25)',
                   cursor: 'pointer',
                   transition: 'all 0.3s',
                   textAlign: 'left',
@@ -111,13 +117,13 @@ const FeaturesPage = () => {
                   <Icon size={28} color="white" />
                 </div>
                 <div>
-                  <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'white', marginBottom: '0.5rem' }}>
+                  <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: isDark ? 'white' : '#0f172a', marginBottom: '0.5rem' }}>
                     {feature.text}
                   </h3>
-                  <p style={{ fontSize: '0.95rem', color: '#9ca3af', lineHeight: 1.6, marginBottom: '1rem' }}>
+                  <p style={{ fontSize: '0.95rem', color: isDark ? '#9ca3af' : '#475569', lineHeight: 1.6, marginBottom: '1rem' }}>
                     {feature.desc}
                   </p>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#a855f7', fontSize: '0.9rem', fontWeight: 600 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: isDark ? '#a855f7' : '#6d28d9', fontSize: '0.9rem', fontWeight: 600 }}>
                     Try it now <ArrowRight size={16} />
                   </div>
                 </div>
@@ -130,17 +136,17 @@ const FeaturesPage = () => {
         <div style={{
           marginTop: '3rem',
           textAlign: 'left',
-          background: 'rgba(31,41,55,0.6)',
+          background: isDark ? 'rgba(31,41,55,0.6)' : 'rgba(255,255,255,0.9)',
           borderRadius: '1rem',
           padding: '1.5rem',
-          border: '1px solid rgba(255,255,255,0.08)'
+          border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(15,23,42,0.08)'
         }}>
-          <h3 style={{ color: 'white', fontWeight: 800, marginBottom: '1rem' }}>Lab Components</h3>
+          <h3 style={{ color: isDark ? 'white' : '#0f172a', fontWeight: 800, marginBottom: '1rem' }}>Lab Components</h3>
 
           {/* Prompt Assist Demo */}
           <div style={{ marginBottom: '1.25rem' }}>
             <div style={{ color: '#9ca3af', marginBottom: '0.25rem' }}>Prompt Assist</div>
-            <input value={demoPrompt} onChange={(e)=>setDemoPrompt(e.target.value)} placeholder="type prompt" style={{ width:'100%', padding:'0.5rem', borderRadius:'0.5rem', border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.05)', color:'#e5e7eb' }} />
+            <input value={demoPrompt} onChange={(e)=>setDemoPrompt(e.target.value)} placeholder="type prompt" style={{ width:'100%', padding:'0.5rem', borderRadius:'0.5rem', border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(15,23,42,0.15)', background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(15,23,42,0.02)', color: isDark ? '#e5e7eb' : '#0f172a' }} />
             <PromptAssistBar prompt={demoPrompt} onApply={()=>{}} />
           </div>
 

@@ -1,6 +1,7 @@
 import React from 'react';
 import { GitCompare, X, Package } from 'lucide-react';
 import { useComparison } from '../context/ComparisonContext';
+import { useTheme } from '../context/ThemeContext';
 
 /**
  * Floating Comparison Button
@@ -9,6 +10,7 @@ import { useComparison } from '../context/ComparisonContext';
  */
 const ComparisonButton = () => {
   const { selectedProducts, count, openModal, clearComparison } = useComparison();
+  const { isDark } = useTheme();
 
   // Only show when we have 2 or more products
   if (count < 2) return null;
@@ -53,7 +55,12 @@ const ComparisonButton = () => {
         {selectedProducts.map(product => (
           <div
             key={product.id}
-            className="bg-white rounded-lg shadow-lg p-2 flex items-center gap-2 text-sm transform transition-all hover:scale-105"
+            className="rounded-lg shadow-lg p-2 flex items-center gap-2 text-sm transform transition-all hover:scale-105"
+            style={{
+              background: isDark ? 'rgba(31,41,55,0.95)' : '#ffffff',
+              border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(17,24,39,0.08)',
+              color: isDark ? '#e5e7eb' : '#111827'
+            }}
           >
             {product.image ? (
               <img
@@ -63,11 +70,17 @@ const ComparisonButton = () => {
                 onError={(e) => { e.currentTarget.style.display = 'none'; }}
               />
             ) : (
-              <div className="w-10 h-10 rounded bg-gray-200 flex items-center justify-center text-gray-500">
-                <Package className="w-5 h-5" />
+              <div
+                className="w-10 h-10 rounded flex items-center justify-center"
+                style={{
+                  background: isDark ? 'rgba(255,255,255,0.06)' : '#e5e7eb',
+                  color: isDark ? '#9ca3af' : '#6b7280'
+                }}
+              >
+                <Package className="w-5 h-5"/>
               </div>
             )}
-            <span className="flex-1 text-gray-800 text-xs line-clamp-1">
+            <span className="flex-1 text-xs line-clamp-1" style={{ color: isDark ? '#e5e7eb' : '#111827' }}>
               {getDisplayName(product)}
             </span>
           </div>

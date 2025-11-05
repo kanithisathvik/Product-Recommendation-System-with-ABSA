@@ -42,7 +42,7 @@ const ProductRecommendationApp = () => {
   const inputRef = useRef(null);
 
   // Comparison Context
-  const { toggleComparison, isSelected, canAddMore, openWithProducts } = useComparison();
+  const { toggleComparison, isSelected, canAddMore } = useComparison();
 
   // Favorites Context
   const { toggleFavorite, isFavorite, favoritesCount, showNotification, notificationMessage } = useFavorites();
@@ -78,6 +78,7 @@ const ProductRecommendationApp = () => {
       totalSearches: 0,
       productsAnalyzed: 0,
       totalABSAAnalyses: 0,
+      successfulABSAAnalyses: 0,
       favoritedProducts: 0,
       comparisons: 0
     };
@@ -177,9 +178,14 @@ const ProductRecommendationApp = () => {
   };
 
   // Use real stats if available, otherwise use animated counters
-  const [productCount] = useCountUp(statsData.productsAnalyzed || 10000000, 2000);
-  const [accuracyCount] = useCountUp(95, 1500);
-  const [userCount] = useCountUp(statsData.totalSearches || 50000, 2500);
+  const [productCount, productRef] = useCountUp(statsData.productsAnalyzed || 10000000, 2000);
+  const dynamicAccuracy = (() => {
+    const total = statsData.totalABSAAnalyses || 0;
+    const success = statsData.successfulABSAAnalyses || 0;
+    return total > 0 ? Math.round((success / total) * 100) : 0;
+  })();
+  const [accuracyCount, accuracyRef] = useCountUp(dynamicAccuracy, 1500);
+  const [userCount, userRef] = useCountUp(statsData.totalSearches || 50000, 2500);
 
   // Live tag suggestions from current prompt (keeps prompt visible and tags updated)
   const { suggestions: promptTags } = useIntentPrediction(prompt);
@@ -313,8 +319,6 @@ const ProductRecommendationApp = () => {
     const name = getProductName(clonedProduct);
     clonedProduct.product_name = name;
     if (!clonedProduct.name) clonedProduct.name = name;
-    // Canonical API-aligned name
-    clonedProduct['Product Name'] = name;
     // Coerce common numeric fields
     const toNum = (v) => {
       if (v === null || v === undefined) return null;
@@ -323,15 +327,7 @@ const ProductRecommendationApp = () => {
       return Number.isFinite(num) ? num : null;
     };
     // Prices
-    const unifiedPrice = toNum(
-      clonedProduct['Price'] ??
-      clonedProduct.selling_price ??
-      clonedProduct.sellingPrice ??
-      clonedProduct.price ??
-      clonedProduct.current_price
-    );
-    clonedProduct['Price'] = unifiedPrice ?? 0;
-    clonedProduct.selling_price = unifiedPrice ?? toNum(clonedProduct.selling_price);
+    clonedProduct.selling_price = toNum(clonedProduct.selling_price ?? clonedProduct.sellingPrice ?? clonedProduct.price ?? clonedProduct.current_price);
     clonedProduct.mrp = toNum(clonedProduct.mrp ?? clonedProduct.original_price ?? clonedProduct.originalPrice ?? clonedProduct.list_price ?? clonedProduct.listPrice);
     if (clonedProduct.discount !== null && clonedProduct.discount !== undefined) {
       clonedProduct.discount = toNum(clonedProduct.discount);
@@ -629,7 +625,7 @@ const ProductRecommendationApp = () => {
     const filtered = products.filter(p => {
       const cat = String(p.category||'').toLowerCase();
       const brand = String(p.brand||'').toLowerCase();
-      const price = Number(p['Price'] || p.selling_price || p.price || 0) || 0;
+      const price = Number(p.selling_price||p.price||0) || 0;
       const ram = Number(p.ram_gb||0);
       const sentiments = p.sentiments || {};
       const pos = (k) => (sentiments[k]?.positive||0) > (sentiments[k]?.negative||0);
@@ -788,9 +784,15 @@ const ProductRecommendationApp = () => {
       
       console.log(`[ABSA] Analysis complete. Total products analyzed: ${analyzedProducts.length}`);
       
-      // Update stats - track ABSA analyses
+      // Update stats - track ABSA analyses and successes
+      const successful = analyzedProducts.reduce((acc, p) => {
+        const hasSentiments = p.sentiments && Object.keys(p.sentiments).length > 0;
+        const hasReviewsAnalyzed = typeof p.reviewsAnalyzed === 'number' ? p.reviewsAnalyzed > 0 : true;
+        return acc + (hasSentiments && hasReviewsAnalyzed ? 1 : 0);
+      }, 0);
       updateStats({
-        totalABSAAnalyses: statsData.totalABSAAnalyses + analyzedProducts.length
+        totalABSAAnalyses: (statsData.totalABSAAnalyses || 0) + analyzedProducts.length,
+        successfulABSAAnalyses: (statsData.successfulABSAAnalyses || 0) + successful
       });
       
       // Sort by sentiment score (highest first)
@@ -2086,14 +2088,16 @@ const ProductRecommendationApp = () => {
               {filteredProducts.map((product, index) => (
                 <div key={product.id} className="product-card" style={{
                   padding: '1.5rem',
-                  background: 'linear-gradient(135deg, rgba(31,41,55,0.98) 80%, rgba(59,130,246,0.08) 100%)',
+                  background: isDark
+                    ? 'linear-gradient(135deg, rgba(31,41,55,0.98) 80%, rgba(59,130,246,0.08) 100%)'
+                    : 'linear-gradient(135deg, rgba(255,255,255,0.98) 80%, rgba(59,130,246,0.06) 100%)',
                   borderRadius: '1.5rem',
-                  boxShadow: '0 4px 24px rgba(168,85,247,0.15)',
+                  boxShadow: '0 4px 24px rgba(168,85,247,0.12)',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '0.75rem',
-                  color: '#f3f4f6',
-                  border: '1px solid rgba(255,255,255,0.07)',
+                  color: isDark ? '#f3f4f6' : '#111827',
+                  border: isDark ? '1px solid rgba(255,255,255,0.07)' : '1px solid rgba(15,23,42,0.08)',
                   position: 'relative',
                   overflow: 'hidden',
                   transition: 'box-shadow 0.3s',
@@ -2117,10 +2121,12 @@ const ProductRecommendationApp = () => {
                       }}
                       style={{
                         padding: '0.5rem',
-                        background: isFavorite(product.id) 
+                        background: isFavorite(product.id)
                           ? 'linear-gradient(135deg, rgba(239,68,68,0.9), rgba(220,38,38,0.9))'
-                          : 'rgba(31,41,55,0.95)',
-                        border: isFavorite(product.id) ? '2px solid #ef4444' : '2px solid rgba(255,255,255,0.1)',
+                          : (isDark ? 'rgba(31,41,55,0.95)' : 'rgba(255,255,255,0.95)'),
+                        border: isFavorite(product.id)
+                          ? '2px solid #ef4444'
+                          : (isDark ? '2px solid rgba(255,255,255,0.1)' : '1px solid rgba(15,23,42,0.12)'),
                         borderRadius: '0.5rem',
                         cursor: 'pointer',
                         transition: 'all 0.3s',
@@ -2131,13 +2137,13 @@ const ProductRecommendationApp = () => {
                       }}
                       onMouseEnter={(e) => {
                         if (!isFavorite(product.id)) {
-                          e.currentTarget.style.background = 'rgba(239,68,68,0.3)';
+                          e.currentTarget.style.background = isDark ? 'rgba(239,68,68,0.3)' : '#ffffff';
                           e.currentTarget.style.transform = 'scale(1.1)';
                         }
                       }}
                       onMouseLeave={(e) => {
                         if (!isFavorite(product.id)) {
-                          e.currentTarget.style.background = 'rgba(31,41,55,0.95)';
+                          e.currentTarget.style.background = isDark ? 'rgba(31,41,55,0.95)' : 'rgba(255,255,255,0.95)';
                           e.currentTarget.style.transform = 'scale(1)';
                         }
                       }}
@@ -2164,10 +2170,10 @@ const ProductRecommendationApp = () => {
                         padding: '0.5rem 0.75rem',
                         background: isSelected(product.id) 
                           ? 'linear-gradient(135deg, rgba(168,85,247,0.9), rgba(139,92,246,0.9))'
-                          : 'rgba(31,41,55,0.95)',
+                          : (isDark ? 'rgba(31,41,55,0.95)' : 'rgba(255,255,255,0.95)'),
                         borderRadius: '0.5rem',
                         cursor: canAddMore || isSelected(product.id) ? 'pointer' : 'not-allowed',
-                        border: isSelected(product.id) ? '2px solid #a855f7' : '2px solid rgba(255,255,255,0.1)',
+                        border: isSelected(product.id) ? '2px solid #a855f7' : (isDark ? '2px solid rgba(255,255,255,0.1)' : '1px solid rgba(15,23,42,0.12)'),
                         transition: 'all 0.3s',
                         opacity: (!canAddMore && !isSelected(product.id)) ? 0.5 : 1,
                         backdropFilter: 'blur(10px)'
@@ -2191,33 +2197,14 @@ const ProductRecommendationApp = () => {
                     </label>
                   </div>
 
-                  {/* Product Image */}
-                  {product.image && (
-                    <div style={{
-                      width: '100%',
-                      height: '200px',
-                      borderRadius: '0.75rem',
-                      overflow: 'hidden',
-                      marginBottom: '0.5rem'
-                    }}>
-                      <img 
-                        src={product.image} 
-                        alt={product.product_name || product.name || 'Product'}
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          objectFit: 'cover'
-                        }}
-                      />
-                    </div>
-                  )}
+                  {/* Product Image removed for compact, text-first layout */}
 
                   {/* Sentiment Badges */}
                   {product.sentiments && Object.keys(product.sentiments).length > 0 && (
                     <div style={{ marginBottom: '0.5rem' }}>
                       <div style={{ 
                         fontSize: '0.75rem', 
-                        color: '#9ca3af', 
+                        color: isDark ? '#9ca3af' : '#6b7280', 
                         marginBottom: '0.5rem',
                         display: 'flex',
                         alignItems: 'center',
@@ -2260,12 +2247,12 @@ const ProductRecommendationApp = () => {
                               gap: '0.25rem'
                             }}>
                               {product.sentimentScore.toFixed(1)}
-                              <span style={{ fontSize: '0.875rem', color: '#9ca3af' }}>/100</span>
+                              <span style={{ fontSize: '0.875rem', color: isDark ? '#9ca3af' : '#6b7280' }}>/100</span>
                             </div>
                           </div>
                           <div style={{
                             fontSize: '0.7rem',
-                            color: '#9ca3af',
+                            color: isDark ? '#9ca3af' : '#6b7280',
                             textAlign: 'right'
                           }}>
                             <div>Based on {currentAspects.length} aspect{currentAspects.length !== 1 ? 's' : ''}</div>
@@ -2285,8 +2272,8 @@ const ProductRecommendationApp = () => {
                   )}
 
                   {/* Product Name */}
-                  <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: 'white', marginBottom: '0.75rem', letterSpacing: '0.01em' }}>
-                    {product['Product Name'] || getProductName(product)}
+                  <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: isDark ? 'white' : '#111827', marginBottom: '0.75rem', letterSpacing: '0.01em' }}>
+                    {getProductName(product)}
                   </div>
                   {/* Product Tags */}
                   <ProductTags product={product} onTagClick={applyTagFilter} />
@@ -2310,9 +2297,9 @@ const ProductRecommendationApp = () => {
                           key={idx}
                           style={{
                             padding: '0.75rem',
-                            background: 'rgba(168,85,247,0.1)',
+                            background: isDark ? 'rgba(168,85,247,0.1)' : 'rgba(168,85,247,0.06)',
                             borderRadius: '0.5rem',
-                            border: '1px solid rgba(168,85,247,0.2)',
+                            border: isDark ? '1px solid rgba(168,85,247,0.2)' : '1px solid rgba(168,85,247,0.25)',
                             display: 'flex',
                             flexDirection: 'column',
                             gap: '0.25rem'
@@ -2320,7 +2307,7 @@ const ProductRecommendationApp = () => {
                         >
                           <div style={{
                             fontSize: '0.7rem',
-                            color: '#9ca3af',
+                            color: isDark ? '#9ca3af' : '#6b7280',
                             textTransform: 'uppercase',
                             letterSpacing: '0.05em',
                             fontWeight: 600
@@ -2329,7 +2316,7 @@ const ProductRecommendationApp = () => {
                           </div>
                           <div style={{
                             fontSize: '0.85rem',
-                            color: '#e5e7eb',
+                            color: isDark ? '#e5e7eb' : '#111827',
                             fontWeight: 500,
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
@@ -2346,17 +2333,18 @@ const ProductRecommendationApp = () => {
                     }
                   </div>
 
-                  {/* Price (canonical) */}
+                  {/* Price Information (if available) */}
                   {(() => {
-                    const price = Number(product['Price'] || 0);
-                    if (!price) return null;
+                    const { sellingPrice, mrp, discount } = getPriceInfo(product);
+                    if (!sellingPrice && !mrp) return null;
+                    
                     return (
                       <div style={{ 
                         display: 'flex', 
                         gap: '1rem', 
                         alignItems: 'center', 
                         fontSize: '1rem', 
-                        color: '#f3f4f6', 
+                        color: isDark ? '#f3f4f6' : '#111827', 
                         marginBottom: '0.75rem',
                         flexWrap: 'wrap',
                         padding: '0.75rem',
@@ -2364,12 +2352,34 @@ const ProductRecommendationApp = () => {
                         borderRadius: '0.5rem',
                         border: '1px solid rgba(16, 185, 129, 0.2)'
                       }}>
-                        <div>
-                          <strong style={{color:'#10b981', fontSize: '0.85rem'}}>Price:</strong>{' '}
-                          <span style={{fontSize: '1.3rem', fontWeight: 'bold', color: '#10b981'}}>
-                            ₹{price.toLocaleString()}
-                          </span>
-                        </div>
+                        {mrp && mrp !== sellingPrice && (
+                          <div>
+                            <strong style={{color: isDark ? '#9ca3af' : '#6b7280', fontSize: '0.85rem'}}>MRP:</strong>{' '}
+                            <span style={{textDecoration: 'line-through', color: isDark ? '#9ca3af' : '#6b7280'}}>
+                              ₹{Number(mrp).toLocaleString()}
+                            </span>
+                          </div>
+                        )}
+                        {sellingPrice && (
+                          <div>
+                            <strong style={{color:'#10b981', fontSize: '0.85rem'}}>Price:</strong>{' '}
+                            <span style={{fontSize: '1.3rem', fontWeight: 'bold', color: '#10b981'}}>
+                              ₹{Number(sellingPrice).toLocaleString()}
+                            </span>
+                          </div>
+                        )}
+                        {discount && (
+                          <div style={{
+                            padding: '0.25rem 0.75rem',
+                            background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                            borderRadius: '999px',
+                            fontSize: '0.85rem',
+                            fontWeight: 'bold',
+                            color: 'white'
+                          }}>
+                            {discount}% OFF
+                          </div>
+                        )}
                       </div>
                     );
                   })()}
@@ -2385,13 +2395,14 @@ const ProductRecommendationApp = () => {
                         gap: '1.5rem', 
                         alignItems: 'center', 
                         fontSize: '0.95rem', 
-                        color: '#f3f4f6',
+                        color: isDark ? '#f3f4f6' : '#111827',
                         marginBottom: '0.75rem'
                       }}>
                         {rating && (
                           <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
                             <Star size={16} fill="#facc15" color="#facc15" />
                             <strong style={{color:'#facc15'}}>{Number(rating).toFixed(1)}</strong>
+                            <span style={{color: isDark ? '#9ca3af' : '#6b7280'}}>/ 5</span>
                           </div>
                         )}
                         {reviewsCount && (
@@ -2496,9 +2507,8 @@ const ProductRecommendationApp = () => {
               {/* Product Comparison Tool Button */}
               <button
                 onClick={() => {
-                  const list = (filteredProducts && filteredProducts.length > 0) ? filteredProducts : products;
-                  try { localStorage.setItem('searchResults', JSON.stringify(list)); } catch {}
-                  navigate('/compare', { state: { products: list } });
+                  localStorage.setItem('searchResults', JSON.stringify(products));
+                  navigate('/compare');
                 }}
                 disabled={products.length < 2}
                 style={{
@@ -2530,7 +2540,6 @@ const ProductRecommendationApp = () => {
                     e.currentTarget.style.boxShadow = 'none';
                   }
                 }}
-                
               >
                 <div style={{
                   display: 'flex',
@@ -2635,12 +2644,10 @@ const ProductRecommendationApp = () => {
                 className="feature-card tilt-card"
                 style={{ animationDelay: `${index * 0.2}s`, cursor: 'pointer' }}
                 onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                onClick={() => {
-                  if (feature.route === '/compare') {
-                    const list = (filteredProducts && filteredProducts.length > 0) ? filteredProducts : products;
-                    try { localStorage.setItem('searchResults', JSON.stringify(list)); } catch {}
-                    navigate('/compare', { state: { products: list } });
-                  } else if (feature.route === '/') {
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (feature.route === '/') {
                     goHome();
                   } else {
                     navigate(feature.route);
@@ -2663,7 +2670,7 @@ const ProductRecommendationApp = () => {
         {route === 'home' && (
           <div className="stats">
             <div className="stat-item">
-              <div className="stat-value">{statsData.productsAnalyzed > 0 ? statsData.productsAnalyzed.toLocaleString() : productCount.toLocaleString()}+</div>
+              <div className="stat-value" ref={productRef}>{statsData.productsAnalyzed > 0 ? statsData.productsAnalyzed.toLocaleString() : productCount.toLocaleString()}+</div>
               <p className="stat-label">Products Analyzed</p>
               <p style={{ 
                 fontSize: '0.8rem', 
@@ -2675,7 +2682,7 @@ const ProductRecommendationApp = () => {
               </p>
             </div>
             <div className="stat-item">
-              <div className="stat-value">{accuracyCount}%</div>
+              <div className="stat-value" ref={accuracyRef}>{accuracyCount}%</div>
               <p className="stat-label">Accuracy Rate</p>
               <p style={{ 
                 fontSize: '0.8rem', 
@@ -2687,7 +2694,7 @@ const ProductRecommendationApp = () => {
               </p>
             </div>
             <div className="stat-item">
-              <div className="stat-value">{statsData.totalSearches > 0 ? statsData.totalSearches : userCount.toLocaleString()}+</div>
+              <div className="stat-value" ref={userRef}>{statsData.totalSearches > 0 ? statsData.totalSearches : userCount.toLocaleString()}+</div>
               <p className="stat-label">Searches Performed</p>
               <p style={{ 
                 fontSize: '0.8rem', 

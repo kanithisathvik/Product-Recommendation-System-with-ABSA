@@ -140,7 +140,7 @@ const FavoritesPage = () => {
       minHeight: '100vh',
       background: isDark
         ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)'
-        : 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+        : 'linear-gradient(135deg, #f8fafc 0%, #eef2ff 50%, #e0f2fe 100%)',
       padding: '2rem',
       position: 'relative',
       overflow: 'auto'
@@ -179,10 +179,10 @@ const FavoritesPage = () => {
               alignItems: 'center',
               gap: '0.5rem',
               padding: '0.75rem 1.5rem',
-              background: 'rgba(31,41,55,0.8)',
-              border: '2px solid rgba(168,85,247,0.5)',
+              background: isDark ? 'rgba(31,41,55,0.8)' : 'rgba(17,24,39,0.06)',
+              border: isDark ? '2px solid rgba(168,85,247,0.5)' : '2px solid rgba(17,24,39,0.08)',
               borderRadius: '0.75rem',
-              color: 'white',
+              color: isDark ? 'white' : '#111827',
               fontSize: '1rem',
               fontWeight: 600,
               cursor: 'pointer',
@@ -191,11 +191,11 @@ const FavoritesPage = () => {
             }}
             className="dark:bg-gray-800/80 dark:border-purple-400/50"
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(168,85,247,0.3)';
+              e.currentTarget.style.background = isDark ? 'rgba(168,85,247,0.3)' : 'rgba(17,24,39,0.1)';
               e.currentTarget.style.transform = 'translateX(-5px)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(31,41,55,0.8)';
+              e.currentTarget.style.background = isDark ? 'rgba(31,41,55,0.8)' : 'rgba(17,24,39,0.06)';
               e.currentTarget.style.transform = 'translateX(0)';
             }}
           >
@@ -318,14 +318,16 @@ const FavoritesPage = () => {
                 key={product.id}
                 style={{
                   padding: '1.5rem',
-                  background: 'linear-gradient(135deg, rgba(31,41,55,0.98) 80%, rgba(59,130,246,0.08) 100%)',
+                  background: isDark
+                    ? 'linear-gradient(135deg, rgba(31,41,55,0.98) 80%, rgba(59,130,246,0.08) 100%)'
+                    : 'linear-gradient(135deg, rgba(255,255,255,0.98) 80%, rgba(59,130,246,0.06) 100%)',
                   borderRadius: '1rem',
                   boxShadow: '0 2px 24px rgba(168,85,247,0.10)',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '0.75rem',
-                  color: '#f3f4f6',
-                  border: '1px solid rgba(255,255,255,0.07)',
+                  color: isDark ? '#f3f4f6' : '#111827',
+                  border: isDark ? '1px solid rgba(255,255,255,0.07)' : '1px solid rgba(15,23,42,0.08)',
                   position: 'relative',
                   overflow: 'hidden',
                   transition: 'all 0.3s',
@@ -437,7 +439,7 @@ const FavoritesPage = () => {
                 )}
 
                 {/* Product Info */}
-                <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: 'white', marginBottom: '0.5rem' }}
+                <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: isDark ? 'white' : '#111827', marginBottom: '0.5rem' }}
                 className="dark:text-gray-100">
                   {productName}
                 </div>

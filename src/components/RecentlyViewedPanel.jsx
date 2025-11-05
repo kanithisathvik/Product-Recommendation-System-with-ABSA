@@ -1,9 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { ChevronUp, ChevronDown } from 'lucide-react';
 import { useRecentlyViewed } from '../hooks/useRecentlyViewed';
+import { useTheme } from '../context/ThemeContext';
 
 const RecentlyViewedPanel = () => {
   const { getRecentlyViewedProducts } = useRecentlyViewed();
+  const { isDark } = useTheme();
   const [open, setOpen] = useState(true);
   const items = useMemo(() => getRecentlyViewedProducts(), [getRecentlyViewedProducts]);
 
@@ -24,11 +26,11 @@ const RecentlyViewedPanel = () => {
         pointerEvents: 'auto'
       }}>
         <div style={{
-          background: 'rgba(17,24,39,0.9)',
-          border: '1px solid rgba(255,255,255,0.08)',
+          background: isDark ? 'rgba(17,24,39,0.9)' : 'rgba(255,255,255,0.98)',
+          border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)',
           borderRadius: open ? '0.75rem' : '0.75rem',
           overflow: 'hidden',
-          boxShadow: '0 -8px 24px rgba(0,0,0,0.35)'
+          boxShadow: isDark ? '0 -8px 24px rgba(0,0,0,0.35)' : '0 -8px 24px rgba(17,24,39,0.08)'
         }}>
           <button
             onClick={() => setOpen(v => !v)}
@@ -39,9 +41,9 @@ const RecentlyViewedPanel = () => {
               justifyContent: 'center',
               gap: '0.5rem',
               padding: '0.5rem 0.75rem',
-              background: 'rgba(255,255,255,0.04)',
+              background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(17,24,39,0.04)',
               border: 'none',
-              color: '#e5e7eb',
+              color: isDark ? '#e5e7eb' : '#111827',
               cursor: 'pointer'
             }}
             aria-expanded={open}
@@ -60,23 +62,23 @@ const RecentlyViewedPanel = () => {
                 <div key={item.id} style={{
                   minWidth: '180px',
                   maxWidth: '220px',
-                  background: 'rgba(31,41,55,0.8)',
-                  border: '1px solid rgba(255,255,255,0.06)',
+                  background: isDark ? 'rgba(31,41,55,0.8)' : 'rgba(255,255,255,0.98)',
+                  border: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.08)',
                   borderRadius: '0.5rem',
                   padding: '0.5rem'
                 }}>
                   <div style={{
                     width: '100%', height: '100px', borderRadius: '0.375rem', overflow: 'hidden',
-                    background: 'rgba(255,255,255,0.05)', marginBottom: '0.5rem'
+                    background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(17,24,39,0.06)', marginBottom: '0.5rem'
                   }}>
                     {item.image ? (
                       <img src={item.image} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : null}
                   </div>
-                  <div style={{ fontSize: '0.85rem', color: '#e5e7eb', fontWeight: 600, lineHeight: 1.3 }} title={item.name}>
+                  <div style={{ fontSize: '0.85rem', color: isDark ? '#e5e7eb' : '#111827', fontWeight: 600, lineHeight: 1.3 }} title={item.name}>
                     {item.name}
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '0.25rem' }}>
+                  <div style={{ fontSize: '0.75rem', color: isDark ? '#9ca3af' : '#6b7280', marginTop: '0.25rem' }}>
                     {item.category || '—'}
                   </div>
                 </div>

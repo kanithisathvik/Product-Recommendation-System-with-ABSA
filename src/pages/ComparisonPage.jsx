@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, GitCompare, X, Star, TrendingUp, TrendingDown, Minus, Check } from 'lucide-react';
+import { ArrowLeft, GitCompare, X, Star, TrendingUp, TrendingDown, Minus, Check, Trophy, Package } from 'lucide-react';
 import { SentimentBadgeList } from '../components/SentimentBadge';
 import { useTheme } from '../context/ThemeContext';
+import { calculateSentimentScore } from '../services/aspectSentimentService';
 
 const ComparisonPage = () => {
   const navigate = useNavigate();
@@ -186,12 +187,39 @@ const ComparisonPage = () => {
   const product2 = selectedProducts[1];
   const showComparison = product1 && product2;
 
+  // Winner/Loser calculation prioritizing sentiment score, then rating, then lower price
+  const getScore = (p) => {
+    if (!p) return null;
+    if (typeof p.sentimentScore === 'number') return p.sentimentScore;
+    if (p.sentiments && Object.keys(p.sentiments).length > 0) {
+      try { return calculateSentimentScore(p.sentiments, p.aspectScores || null); } catch { return null; }
+    }
+    return null;
+  };
+
+  const s1 = getScore(product1);
+  const s2 = getScore(product2);
+  let winnerIdx = -1;
+  let criterion = '';
+  if (showComparison) {
+    if (typeof s1 === 'number' && typeof s2 === 'number' && s1 !== s2) {
+      winnerIdx = s1 > s2 ? 0 : 1;
+      criterion = 'Sentiment';
+    } else if (typeof product1?.rating === 'number' && typeof product2?.rating === 'number' && product1.rating !== product2.rating) {
+      winnerIdx = product1.rating > product2.rating ? 0 : 1;
+      criterion = 'Rating';
+    } else if (typeof product1?.['Price'] === 'number' && typeof product2?.['Price'] === 'number' && product1['Price'] !== product2['Price']) {
+      winnerIdx = product1['Price'] < product2['Price'] ? 0 : 1; // lower is better
+      criterion = 'Price';
+    }
+  }
+
   return (
     <div className={isDark ? 'dark' : ''} style={{
       minHeight: '100vh',
       background: isDark 
         ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)'
-        : 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+        : 'linear-gradient(135deg, #f8fafc 0%, #eef2ff 50%, #e2e8f0 100%)',
       padding: '2rem',
       position: 'relative',
       overflow: 'auto'
@@ -222,10 +250,10 @@ const ComparisonPage = () => {
             alignItems: 'center',
             gap: '0.5rem',
             padding: '0.75rem 1.5rem',
-            background: 'rgba(31,41,55,0.8)',
-            border: '2px solid rgba(168,85,247,0.5)',
+            background: isDark ? 'rgba(31,41,55,0.8)' : 'rgba(255,255,255,0.9)',
+            border: isDark ? '2px solid rgba(168,85,247,0.5)' : '1px solid rgba(15,23,42,0.12)',
             borderRadius: '0.75rem',
-            color: 'white',
+            color: isDark ? 'white' : '#111827',
             fontSize: '1rem',
             fontWeight: 600,
             cursor: 'pointer',
@@ -234,11 +262,11 @@ const ComparisonPage = () => {
             backdropFilter: 'blur(10px)'
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'rgba(168,85,247,0.3)';
+            e.currentTarget.style.background = isDark ? 'rgba(168,85,247,0.3)' : '#ffffff';
             e.currentTarget.style.transform = 'translateX(-5px)';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'rgba(31,41,55,0.8)';
+            e.currentTarget.style.background = isDark ? 'rgba(31,41,55,0.8)' : 'rgba(255,255,255,0.9)';
             e.currentTarget.style.transform = 'translateX(0)';
           }}
         >
@@ -272,7 +300,7 @@ const ComparisonPage = () => {
           </div>
           <p style={{
             fontSize: '1.1rem',
-            color: '#9ca3af',
+            color: isDark ? '#9ca3af' : '#4b5563',
             maxWidth: '600px',
             margin: '0 auto'
           }}>
@@ -289,10 +317,10 @@ const ComparisonPage = () => {
             gap: '1rem',
             marginBottom: '2rem',
             padding: '1.5rem',
-            background: 'rgba(31,41,55,0.6)',
+            background: isDark ? 'rgba(31,41,55,0.6)' : 'rgba(255,255,255,0.9)',
             borderRadius: '1rem',
             backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(168,85,247,0.3)'
+            border: isDark ? '1px solid rgba(168,85,247,0.3)' : '1px solid rgba(15,23,42,0.08)'
           }}>
             {selectedProducts.map((product, idx) => (
               <div key={product.id} style={{
@@ -301,13 +329,30 @@ const ComparisonPage = () => {
                 alignItems: 'center',
                 gap: '1rem',
                 padding: '1rem',
-                background: 'rgba(168,85,247,0.2)',
+                background: winnerIdx === idx
+                  ? 'linear-gradient(135deg, rgba(16,185,129,0.25), rgba(59,130,246,0.18))'
+                  : 'rgba(168,85,247,0.2)',
                 borderRadius: '0.75rem',
-                border: '2px solid rgba(168,85,247,0.5)'
+                border: winnerIdx === idx
+                  ? '2px solid rgba(16,185,129,0.8)'
+                  : '2px solid rgba(168,85,247,0.5)',
+                boxShadow: winnerIdx === idx ? '0 8px 24px rgba(16,185,129,0.35)' : 'none',
+                transform: winnerIdx === idx ? 'scale(1.01)' : 'scale(1)',
+                transition: 'all 0.3s ease'
               }}>
+                {/* Small image/avatar */}
+                <div style={{ width: 56, height: 56, borderRadius: 12, overflow: 'hidden', background: isDark ? 'rgba(255,255,255,0.06)' : '#e5e7eb', flexShrink: 0 }}>
+                  {product.image ? (
+                    <img src={product.image} alt={product['Product Name']} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isDark ? '#9ca3af' : '#64748b' }}>
+                      <Package size={20} />
+                    </div>
+                  )}
+                </div>
                 <div style={{ flex: 1 }}>
                   <div style={{
-                    color: 'white',
+                    color: isDark ? 'white' : '#111827',
                     fontWeight: 700,
                     fontSize: '1rem',
                     marginBottom: '0.25rem'
@@ -356,7 +401,7 @@ const ComparisonPage = () => {
         {!showComparison && (
           <div>
             <h2 style={{
-              color: 'white',
+              color: isDark ? 'white' : '#111827',
               fontSize: '1.5rem',
               fontWeight: 700,
               marginBottom: '1.5rem'
@@ -378,14 +423,14 @@ const ComparisonPage = () => {
                     onClick={() => handleProductSelect(product)}
                     style={{
                       background: isSelected 
-                        ? 'linear-gradient(135deg, rgba(168,85,247,0.3), rgba(139,92,246,0.3))'
-                        : 'rgba(31,41,55,0.6)',
+                        ? 'linear-gradient(135deg, rgba(168,85,247,0.25), rgba(139,92,246,0.25))'
+                        : (isDark ? 'rgba(31,41,55,0.6)' : 'rgba(255,255,255,0.95)'),
                       borderRadius: '1rem',
                       padding: '1.25rem',
                       backdropFilter: 'blur(10px)',
                       border: isSelected 
                         ? '3px solid rgba(168,85,247,0.8)' 
-                        : '1px solid rgba(255,255,255,0.1)',
+                        : (isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(15,23,42,0.08)'),
                       cursor: 'pointer',
                       transition: 'all 0.3s',
                       position: 'relative',
@@ -393,15 +438,15 @@ const ComparisonPage = () => {
                     }}
                     onMouseEnter={(e) => {
                       if (!isSelected) {
-                        e.currentTarget.style.background = 'rgba(31,41,55,0.8)';
-                        e.currentTarget.style.borderColor = 'rgba(168,85,247,0.5)';
+                        e.currentTarget.style.background = isDark ? 'rgba(31,41,55,0.8)' : '#ffffff';
+                        e.currentTarget.style.borderColor = isDark ? 'rgba(168,85,247,0.5)' : 'rgba(15,23,42,0.15)';
                         e.currentTarget.style.transform = 'translateY(-5px)';
                       }
                     }}
                     onMouseLeave={(e) => {
                       if (!isSelected) {
-                        e.currentTarget.style.background = 'rgba(31,41,55,0.6)';
-                        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
+                        e.currentTarget.style.background = isDark ? 'rgba(31,41,55,0.6)' : 'rgba(255,255,255,0.95)';
+                        e.currentTarget.style.borderColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(15,23,42,0.08)';
                         e.currentTarget.style.transform = 'translateY(0)';
                       }
                     }}
@@ -427,7 +472,7 @@ const ComparisonPage = () => {
                     {/* Product Title (no images) */}
                     <div style={{ marginBottom: '0.75rem' }}>
                       <div style={{
-                        color: 'white',
+                        color: isDark ? 'white' : '#111827',
                         fontSize: '1.05rem',
                         fontWeight: 700,
                         lineHeight: '1.3',
@@ -442,7 +487,7 @@ const ComparisonPage = () => {
 
                     {/* Product Info */}
                     <h3 style={{
-                      color: 'white',
+                      color: isDark ? 'white' : '#111827',
                       fontSize: '1.1rem',
                       fontWeight: 700,
                       marginBottom: '0.75rem',
@@ -539,15 +584,34 @@ const ComparisonPage = () => {
         {/* Detailed Comparison Section */}
         {showComparison && (
           <div style={{
-            background: 'rgba(31,41,55,0.6)',
+            background: isDark ? 'rgba(31,41,55,0.6)' : 'rgba(255,255,255,0.95)',
             borderRadius: '1rem',
             padding: '2rem',
             backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(255,255,255,0.1)',
+            border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(15,23,42,0.08)',
             boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
           }}>
+            {/* Winner banner */}
+            {winnerIdx !== -1 && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '1rem 1.25rem',
+                borderRadius: '0.75rem',
+                marginBottom: '1.25rem',
+                background: 'linear-gradient(90deg, rgba(16,185,129,0.15) 0%, rgba(59,130,246,0.12) 100%)',
+                border: '1px solid rgba(16,185,129,0.35)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <Trophy className="animate-bounce" size={22} color="#f59e0b" />
+                  <div style={{ fontWeight: 800, color: isDark ? '#e5e7eb' : '#111827' }}>Sentiment Winner</div>
+                </div>
+                <div style={{ fontSize: 12, color: isDark ? '#94a3b8' : '#475569' }}>Criterion: {criterion || 'Tie-break'}</div>
+              </div>
+            )}
             <h2 style={{
-              color: 'white',
+              color: isDark ? 'white' : '#111827',
               fontSize: '2rem',
               fontWeight: 900,
               marginBottom: '2rem',
@@ -559,7 +623,7 @@ const ComparisonPage = () => {
               Detailed Comparison Report
             </h2>
 
-            {/* Overview (no images) */}
+            {/* Overview with images and winner highlight */}
             <div style={{
               display: 'grid',
               gridTemplateColumns: '1fr 1fr',
@@ -569,13 +633,30 @@ const ComparisonPage = () => {
               {[product1, product2].map((product, idx) => (
                 <div key={idx} style={{
                   position: 'relative',
-                  background: 'rgba(15,23,42,0.8)',
+                  background: isDark ? 'rgba(15,23,42,0.8)' : 'rgba(255,255,255,0.95)',
                   borderRadius: '1rem',
                   padding: '1.5rem',
-                  border: '2px solid rgba(168,85,247,0.3)'
+                  border: winnerIdx === idx ? '2px solid rgba(16,185,129,0.65)' : '2px solid rgba(168,85,247,0.3)',
+                  boxShadow: winnerIdx === idx ? '0 10px 30px rgba(16,185,129,0.35)' : 'none',
+                  transform: winnerIdx === idx ? 'translateY(-3px)' : 'none',
+                  transition: 'all 0.3s ease'
                 }}>
+                  {/* Winner tag */}
+                  {winnerIdx === idx && (
+                    <div style={{ position: 'absolute', top: -12, right: 12, background: '#10b981', color: 'white', borderRadius: 9999, padding: '0.25rem 0.6rem', fontSize: 12, fontWeight: 800 }}>WINNER</div>
+                  )}
+                  {/* Product Image */}
+                  <div style={{ height: 160, borderRadius: 12, overflow: 'hidden', background: isDark ? 'rgba(255,255,255,0.06)' : '#e5e7eb', marginBottom: '0.75rem' }}>
+                    {product.image ? (
+                      <img src={product.image} alt={product.product_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isDark ? '#9ca3af' : '#64748b' }}>
+                        <Package size={24} />
+                      </div>
+                    )}
+                  </div>
                   <h3 style={{
-                    color: 'white',
+                    color: isDark ? 'white' : '#111827',
                     fontSize: '1.25rem',
                     fontWeight: 700,
                     marginBottom: '0.5rem'
@@ -592,7 +673,7 @@ const ComparisonPage = () => {
                   }}>
                     <Star size={18} fill="#facc15" />
                     <span style={{ fontWeight: 600 }}>{product.rating ?? '—'}</span>
-                    <span style={{ color: '#9ca3af' }}>({(product.reviews_count ?? 0).toLocaleString()} reviews)</span>
+                    <span style={{ color: isDark ? '#9ca3af' : '#6b7280' }}>({(product.reviews_count ?? 0).toLocaleString()} reviews)</span>
                   </div>
                   <div style={{
                     fontSize: '1.5rem',
@@ -624,6 +705,7 @@ const ComparisonPage = () => {
                 status1={getComparisonValue(product1['Price'], product2['Price'], false)}
                 status2={getComparisonValue(product2['Price'], product1['Price'], false)}
                 icon={getComparisonIcon}
+                isDark={isDark}
               />
 
               {/* Rating Comparison */}
@@ -634,6 +716,7 @@ const ComparisonPage = () => {
                 status1={getComparisonValue(product1.rating, product2.rating)}
                 status2={getComparisonValue(product2.rating, product1.rating)}
                 icon={getComparisonIcon}
+                isDark={isDark}
               />
 
               {/* Reviews Count */}
@@ -644,6 +727,7 @@ const ComparisonPage = () => {
                 status1={getComparisonValue(product1.reviews_count, product2.reviews_count)}
                 status2={getComparisonValue(product2.reviews_count, product1.reviews_count)}
                 icon={getComparisonIcon}
+                isDark={isDark}
               />
 
               {/* Discount */}
@@ -654,6 +738,7 @@ const ComparisonPage = () => {
                 status1={getComparisonValue(product1.discount, product2.discount)}
                 status2={getComparisonValue(product2.discount, product1.discount)}
                 icon={getComparisonIcon}
+                isDark={isDark}
               />
 
               {/* Specs Comparison */}
@@ -661,12 +746,14 @@ const ComparisonPage = () => {
                 label="Display"
                 value1={`${product1.standing_screen_display_size} (${product1.screen_resolution})`}
                 value2={`${product2.standing_screen_display_size} (${product2.screen_resolution})`}
+                isDark={isDark}
               />
 
               <ComparisonRow
                 label="Processor"
                 value1={product1.processor_type}
                 value2={product2.processor_type}
+                isDark={isDark}
               />
 
               <ComparisonRow
@@ -676,6 +763,7 @@ const ComparisonPage = () => {
                 status1={getComparisonValue(product1.ram_gb, product2.ram_gb)}
                 status2={getComparisonValue(product2.ram_gb, product1.ram_gb)}
                 icon={getComparisonIcon}
+                isDark={isDark}
               />
 
               <ComparisonRow
@@ -685,31 +773,34 @@ const ComparisonPage = () => {
                 status1={getComparisonValue(product1.storage_gb, product2.storage_gb)}
                 status2={getComparisonValue(product2.storage_gb, product1.storage_gb)}
                 icon={getComparisonIcon}
+                isDark={isDark}
               />
 
               <ComparisonRow
                 label="Graphics"
                 value1={product1.graphics_coprocessor}
                 value2={product2.graphics_coprocessor}
+                isDark={isDark}
               />
 
               <ComparisonRow
                 label="Operating System"
                 value1={product1.operating_system}
                 value2={product2.operating_system}
+                isDark={isDark}
               />
 
               {/* Sentiment Comparison - Enhanced with detailed aspect-by-aspect comparison */}
               {product1.sentiments && product2.sentiments && (
                 <div style={{
-                  background: 'rgba(15,23,42,0.6)',
+                  background: isDark ? 'rgba(15,23,42,0.6)' : 'rgba(255,255,255,0.9)',
                   borderRadius: '0.75rem',
                   padding: '2rem',
-                  border: '1px solid rgba(168,85,247,0.3)',
+                  border: isDark ? '1px solid rgba(168,85,247,0.3)' : '1px solid rgba(15,23,42,0.08)',
                   marginTop: '1rem'
                 }}>
                   <div style={{
-                    color: '#d1d5db',
+                    color: isDark ? '#d1d5db' : '#111827',
                     fontSize: '1.25rem',
                     fontWeight: 700,
                     marginBottom: '1.5rem',
@@ -866,10 +957,10 @@ const ComparisonPage = () => {
 
                   {/* Aspect-by-Aspect Sentiment Comparison */}
                   <div style={{
-                    background: 'rgba(15,23,42,0.4)',
+                    background: isDark ? 'rgba(15,23,42,0.4)' : 'rgba(15,23,42,0.04)',
                     borderRadius: '0.75rem',
                     padding: '1.5rem',
-                    border: '1px solid rgba(255,255,255,0.05)'
+                    border: isDark ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(15,23,42,0.08)'
                   }}>
                     <h4 style={{
                       color: '#d1d5db',
@@ -920,10 +1011,10 @@ const ComparisonPage = () => {
                             gap: '1rem',
                             alignItems: 'center',
                             padding: '1rem',
-                            background: 'rgba(15,23,42,0.3)',
+                            background: isDark ? 'rgba(15,23,42,0.3)' : 'rgba(15,23,42,0.03)',
                             borderRadius: '0.5rem',
                             marginBottom: '0.75rem',
-                            border: '1px solid rgba(255,255,255,0.05)'
+                            border: isDark ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(15,23,42,0.08)'
                           }}>
                             {/* Product 1 Sentiment */}
                             <div style={{
@@ -1115,19 +1206,19 @@ const ComparisonPage = () => {
 };
 
 // Helper component for comparison rows
-const ComparisonRow = ({ label, value1, value2, status1, status2, icon }) => (
+const ComparisonRow = ({ label, value1, value2, status1, status2, icon, isDark }) => (
   <div style={{
     display: 'grid',
     gridTemplateColumns: '200px 1fr 1fr',
     gap: '1rem',
     alignItems: 'center',
     padding: '1rem',
-    background: 'rgba(15,23,42,0.4)',
+    background: isDark ? 'rgba(15,23,42,0.4)' : 'rgba(15,23,42,0.04)',
     borderRadius: '0.5rem',
-    border: '1px solid rgba(255,255,255,0.05)'
+    border: isDark ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(15,23,42,0.08)'
   }}>
     <div style={{
-      color: '#d1d5db',
+      color: isDark ? '#d1d5db' : '#374151',
       fontSize: '0.95rem',
       fontWeight: 600,
       textTransform: 'uppercase',
@@ -1139,7 +1230,7 @@ const ComparisonRow = ({ label, value1, value2, status1, status2, icon }) => (
       display: 'flex',
       alignItems: 'center',
       gap: '0.5rem',
-      color: 'white',
+      color: isDark ? 'white' : '#111827',
       fontSize: '1rem'
     }}>
       {icon && status1 && icon(status1)}
@@ -1149,7 +1240,7 @@ const ComparisonRow = ({ label, value1, value2, status1, status2, icon }) => (
       display: 'flex',
       alignItems: 'center',
       gap: '0.5rem',
-      color: 'white',
+      color: isDark ? 'white' : '#111827',
       fontSize: '1rem'
     }}>
       {icon && status2 && icon(status2)}

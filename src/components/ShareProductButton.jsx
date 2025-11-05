@@ -1,10 +1,12 @@
 import React from 'react';
 import { Share2 } from 'lucide-react';
 import generateShareURL from '../utils/generateShareURL';
+import { useTheme } from '../context/ThemeContext';
 
 const ShareProductButton = ({ product, filters }) => {
   if (!product && !filters) return null;
   const url = generateShareURL({ product, filters });
+  const { isDark } = useTheme();
 
   const handleShare = async (e) => {
     e?.stopPropagation?.();
@@ -38,11 +40,11 @@ const ShareProductButton = ({ product, filters }) => {
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        width: '34px', height: '34px',
+        width: '36px', height: '36px',
         borderRadius: '0.5rem',
-        background: 'rgba(255,255,255,0.08)',
-        border: '1px solid rgba(255,255,255,0.15)',
-        color: '#e5e7eb',
+        background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(17,24,39,0.06)',
+        border: isDark ? '1px solid rgba(255,255,255,0.15)' : '1px solid rgba(17,24,39,0.08)',
+        color: isDark ? '#e5e7eb' : '#111827',
         cursor: 'pointer'
       }}
     >
