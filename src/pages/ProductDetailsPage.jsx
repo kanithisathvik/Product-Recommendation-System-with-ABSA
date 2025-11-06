@@ -10,6 +10,137 @@ const ProductDetailsPage = () => {
   const location = useLocation();
   const { isDark } = useTheme();
   const [product, setProduct] = useState(null);
+  
+  // Resolve product category with heuristics
+  const resolveCategory = (p) => {
+    const raw = (p?.category || '').toString().toLowerCase();
+    const name = (p?.product_name || p?.name || '').toString().toLowerCase();
+    const text = `${raw} ${name}`;
+    if (/camera|dslr|mirrorless|canon|nikon|sony\s(alpha)?/.test(text)) return 'camera';
+    if (/keyboard|keychron|switch|mechanical/.test(text)) return 'keyboard';
+    if (/monitor|display|144hz|240hz|ips|oled\smonitor/.test(text)) return 'monitor';
+    if (/phone|smartphone|iphone|android|mobile/.test(text)) return 'phone';
+    if (/power\s?bank|mAh|mah/.test(text)) return 'power_bank';
+    if (/printer|laserjet|inkjet/.test(text)) return 'printer';
+    if (/smartwatch|watch|fitbit|galaxy\swatch|apple\swatch/.test(text)) return 'smartwatch';
+    if (/tablet|ipad|tab\s/.test(text)) return 'tablet';
+    if (/tv|television|smart\stv|oled|qled|uhd/.test(text)) return 'tv';
+    if (/laptop|notebook|ultrabook|macbook|gaming|business|professional|ultraportable|thin/.test(text)) return 'laptop';
+    return 'generic';
+  };
+
+  const getFirst = (obj, keys) => {
+    for (const k of keys) {
+      if (obj[k] !== undefined && obj[k] !== null && obj[k] !== '') return obj[k];
+    }
+    return null;
+  };
+
+  const asText = (v) => {
+    if (v === null || v === undefined) return null;
+    if (typeof v === 'object') return JSON.stringify(v);
+    return String(v);
+  };
+
+  const specDefs = {
+    laptop: [
+      { label: 'Display Size', keys: ['standing_screen_display_size','display_size','screen_size'] },
+      { label: 'Screen Resolution', keys: ['screen_resolution','display_resolution','resolution'] },
+      { label: 'Processor', keys: ['processor_type','processor','cpu'] },
+      { label: 'RAM', keys: ['ram_gb','ram','memory'], format: (v)=>/gb|GB/.test(String(v))?String(v):`${v} GB` },
+      { label: 'Storage', keys: ['storage_gb','storage','ssd','rom'], format: (v)=>/gb|tb|GB|TB/.test(String(v))?String(v):`${v} GB` },
+      { label: 'Graphics', keys: ['graphics_coprocessor','gpu','graphics'] },
+      { label: 'Operating System', keys: ['operating_system','os'] },
+      { label: 'Color', keys: ['colour','color'] },
+      { label: 'Form Factor', keys: ['form_factor'] },
+    ],
+    phone: [
+      { label: 'Display Size', keys: ['display_size','screen_size'] },
+      { label: 'Screen Resolution', keys: ['display_resolution','screen_resolution','resolution'] },
+      { label: 'Processor/Chipset', keys: ['chipset','processor','soc'] },
+      { label: 'RAM', keys: ['ram_gb','ram'], format: (v)=>/gb|GB/.test(String(v))?String(v):`${v} GB` },
+      { label: 'Storage', keys: ['storage_gb','storage','rom'], format: (v)=>/gb|tb|GB|TB/.test(String(v))?String(v):`${v} GB` },
+      { label: 'Battery', keys: ['battery_capacity','battery','battery_mAh'], format: (v)=>/mah|mAh/.test(String(v))?String(v):`${v} mAh` },
+      { label: 'Main Camera', keys: ['rear_camera','main_camera'] },
+      { label: 'Front Camera', keys: ['front_camera','selfie_camera'] },
+      { label: 'Operating System', keys: ['operating_system','os'] },
+      { label: 'Charging', keys: ['fast_charging','charging_speed','charging'] },
+      { label: '5G Support', keys: ['5g','five_g','network'] },
+    ],
+    camera: [
+      { label: 'Sensor', keys: ['sensor_size','sensor'] },
+      { label: 'Megapixels', keys: ['megapixels','mp'] },
+      { label: 'Lens Mount', keys: ['lens_mount','mount'] },
+      { label: 'ISO Range', keys: ['iso_range','iso'] },
+      { label: 'Shutter Speed', keys: ['shutter_speed'] },
+      { label: 'Video', keys: ['video_resolution','video'] },
+      { label: 'Battery Life', keys: ['battery_life'] },
+      { label: 'Weight', keys: ['weight'] },
+    ],
+    keyboard: [
+      { label: 'Switch Type', keys: ['switch_type','switches'] },
+      { label: 'Connectivity', keys: ['connectivity','connection','bluetooth','wireless'] },
+      { label: 'Layout', keys: ['layout','form_factor'] },
+      { label: 'Backlight', keys: ['backlight','rgb'] },
+      { label: 'Key Rollover', keys: ['n_key_rollover','key_rollover'] },
+      { label: 'Battery', keys: ['battery_life','battery'] },
+    ],
+    monitor: [
+      { label: 'Screen Size', keys: ['screen_size','display_size'] },
+      { label: 'Resolution', keys: ['resolution','screen_resolution','display_resolution'] },
+      { label: 'Panel Type', keys: ['panel_type','panel'] },
+      { label: 'Refresh Rate', keys: ['refresh_rate','hz'] },
+      { label: 'Response Time', keys: ['response_time','ms'] },
+      { label: 'HDR', keys: ['hdr'] },
+      { label: 'Ports', keys: ['ports','connectivity'] },
+    ],
+    power_bank: [
+      { label: 'Capacity', keys: ['capacity','capacity_mah','battery_capacity'], format: (v)=>/mah|mAh/.test(String(v))?String(v):`${v} mAh` },
+      { label: 'Output Power', keys: ['output_power','max_output','wattage'], format: (v)=>/w|W/.test(String(v))?String(v):`${v} W` },
+      { label: 'Ports', keys: ['ports','port_count','usb_c_ports','usb_a_ports'] },
+      { label: 'Fast Charging', keys: ['fast_charging','pd_support'] },
+      { label: 'Weight', keys: ['weight'] },
+    ],
+    printer: [
+      { label: 'Technology', keys: ['printer_technology','technology','type'] },
+      { label: 'Print Resolution', keys: ['print_resolution','resolution'] },
+      { label: 'Color/Mono', keys: ['color_type','color','mono'] },
+      { label: 'Print Speed', keys: ['print_speed_ppm','print_speed'] },
+      { label: 'Duplex', keys: ['duplex'] },
+      { label: 'Connectivity', keys: ['connectivity','wireless','ethernet'] },
+    ],
+    smartwatch: [
+      { label: 'Display Size', keys: ['display_size','screen_size'] },
+      { label: 'Resolution', keys: ['display_resolution','screen_resolution'] },
+      { label: 'Battery Life', keys: ['battery_life','battery'] },
+      { label: 'Water Resistance', keys: ['water_resistance','ip_rating'] },
+      { label: 'Sensors', keys: ['sensors'] },
+      { label: 'Connectivity', keys: ['connectivity','bluetooth','wifi','nfc','gps'] },
+    ],
+    tablet: [
+      { label: 'Display Size', keys: ['display_size','screen_size','standing_screen_display_size'] },
+      { label: 'Resolution', keys: ['display_resolution','screen_resolution','resolution'] },
+      { label: 'Processor', keys: ['processor','chipset','processor_type'] },
+      { label: 'RAM', keys: ['ram_gb','ram'], format: (v)=>/gb|GB/.test(String(v))?String(v):`${v} GB` },
+      { label: 'Storage', keys: ['storage_gb','storage','rom'], format: (v)=>/gb|tb|GB|TB/.test(String(v))?String(v):`${v} GB` },
+      { label: 'Battery', keys: ['battery_capacity','battery'] },
+      { label: 'Operating System', keys: ['operating_system','os'] },
+    ],
+    tv: [
+      { label: 'Screen Size', keys: ['screen_size','display_size'] },
+      { label: 'Resolution', keys: ['resolution','display_resolution'] },
+      { label: 'Panel Technology', keys: ['panel_type','panel','panel_technology'] },
+      { label: 'Refresh Rate', keys: ['refresh_rate','hz'] },
+      { label: 'HDR Formats', keys: ['hdr_formats','hdr'] },
+      { label: 'Smart OS', keys: ['smart_os','operating_system','os'] },
+      { label: 'Ports', keys: ['ports','hdmi_ports','usb_ports'] },
+    ],
+    generic: [
+      { label: 'Color', keys: ['colour','color'] },
+      { label: 'Brand', keys: ['brand'] },
+      { label: 'Model/Series', keys: ['series','model'] },
+    ],
+  };
 
   useEffect(() => {
     // 1) If product was passed via navigation state, use it first
@@ -102,37 +233,71 @@ const ProductDetailsPage = () => {
         margin: '0 auto',
         padding: '2rem'
       }}>
-        {/* Back Button */}
-        <button
-          onClick={() => navigate('/')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            padding: '0.75rem 1.5rem',
-            background: isDark ? 'rgba(31,41,55,0.8)' : 'rgba(255,255,255,0.9)',
-            border: isDark ? '2px solid rgba(168,85,247,0.5)' : '1px solid rgba(15,23,42,0.12)',
-            borderRadius: '0.75rem',
-            color: isDark ? 'white' : '#111827',
-            fontSize: '1rem',
-            fontWeight: 600,
-            cursor: 'pointer',
-            marginBottom: '2rem',
-            transition: 'all 0.3s',
-            backdropFilter: 'blur(10px)'
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = isDark ? 'rgba(168,85,247,0.3)' : '#ffffff';
-            e.currentTarget.style.transform = 'translateX(-5px)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = isDark ? 'rgba(31,41,55,0.8)' : 'rgba(255,255,255,0.9)';
-            e.currentTarget.style.transform = 'translateX(0)';
-          }}
-        >
-          <ArrowLeft size={20} />
-          Back to Search Results
-        </button>
+        {/* Back & Exit Actions */}
+        <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', flexWrap: 'wrap' }}>
+          <button
+            onClick={() => navigate('/')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              padding: '0.75rem 1.5rem',
+              background: isDark ? 'rgba(31,41,55,0.8)' : 'rgba(255,255,255,0.9)',
+              border: isDark ? '2px solid rgba(168,85,247,0.5)' : '1px solid rgba(15,23,42,0.12)',
+              borderRadius: '0.75rem',
+              color: isDark ? 'white' : '#111827',
+              fontSize: '1rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.3s',
+              backdropFilter: 'blur(10px)'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = isDark ? 'rgba(168,85,247,0.3)' : '#ffffff';
+              e.currentTarget.style.transform = 'translateX(-5px)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = isDark ? 'rgba(31,41,55,0.8)' : 'rgba(255,255,255,0.9)';
+              e.currentTarget.style.transform = 'translateX(0)';
+            }}
+          >
+            <ArrowLeft size={20} />
+            Back to Search Results
+          </button>
+          <button
+            onClick={() => {
+              try { localStorage.setItem('resetSearchOnHome', '1'); } catch {}
+              navigate('/');
+            }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              padding: '0.75rem 1.5rem',
+              background: 'linear-gradient(135deg, rgba(34,197,94,0.18), rgba(16,185,129,0.18))',
+              border: '2px solid rgba(16,185,129,0.5)',
+              borderRadius: '0.75rem',
+              color: '#34d399',
+              fontSize: '1rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              transition: 'all 0.3s',
+              backdropFilter: 'blur(10px)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'linear-gradient(135deg, rgba(16,185,129,0.35), rgba(5,150,105,0.35))';
+              e.currentTarget.style.transform = 'translateY(-2px)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'linear-gradient(135deg, rgba(34,197,94,0.18), rgba(16,185,129,0.18))';
+              e.currentTarget.style.transform = 'translateY(0)';
+            }}
+          >
+            Exit & New Search
+          </button>
+        </div>
 
         {/* Main Content */}
         <div style={{
@@ -496,21 +661,50 @@ const ProductDetailsPage = () => {
               <Zap size={28} color="#3b82f6" />
               Technical Specifications
             </h2>
+            {(() => {
+              const cat = resolveCategory(product);
+              const defs = specDefs[cat] || specDefs.generic;
+              const rows = [];
+              for (const def of defs) {
+                const val = getFirst(product, def.keys);
+                const valueText = val != null ? (def.format ? def.format(val) : asText(val)) : null;
+                if (valueText) rows.push({ label: def.label, value: valueText });
+              }
 
-            <div style={{
-              display: 'grid',
-              gap: '1rem'
-            }}>
-              <SpecRow isDark={isDark} label="Display Size" value={product.standing_screen_display_size || '—'} />
-              <SpecRow isDark={isDark} label="Screen Resolution" value={product.screen_resolution || '—'} />
-              <SpecRow isDark={isDark} label="Processor" value={product.processor_type || product.processor || '—'} />
-              <SpecRow isDark={isDark} label="RAM" value={product.ram_gb != null ? `${product.ram_gb} GB` : '—'} />
-              <SpecRow isDark={isDark} label="Storage" value={product.storage_gb != null ? `${product.storage_gb} GB SSD` : '—'} />
-              <SpecRow isDark={isDark} label="Graphics" value={product.graphics_coprocessor || product.gpu || '—'} />
-              <SpecRow isDark={isDark} label="Operating System" value={product.operating_system || '—'} />
-              <SpecRow isDark={isDark} label="Color" value={product.colour || product.color || '—'} />
-              <SpecRow isDark={isDark} label="Form Factor" value={product.form_factor || '—'} />
-            </div>
+              // If category rows are too few, enrich with some generic fields that are present
+              if (rows.length < 4) {
+                const genericKeys = ['brand','series','model','colour','color','form_factor'];
+                for (const gk of genericKeys) {
+                  const gv = product[gk];
+                  if (gv != null && gv !== '' && !rows.find(r => r.label.toLowerCase().includes(gk.replace('_',' ')))) {
+                    const label = gk.replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase());
+                    rows.push({ label, value: asText(gv) });
+                  }
+                }
+              }
+
+              // As a final fallback, if still nothing meaningful, pick up to 6 additional fields not obviously review/price
+              if (rows.length === 0) {
+                const exclude = ['id','image','reviews','review','sentiment','price','mrp','selling_price','discount'];
+                const picked = [];
+                for (const [k,v] of Object.entries(product)) {
+                  const lower = k.toLowerCase();
+                  if (exclude.some(e => lower.includes(e))) continue;
+                  if (v === null || v === undefined || v === '') continue;
+                  picked.push({ label: k.replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase()), value: asText(v) });
+                  if (picked.length >= 6) break;
+                }
+                rows.push(...picked);
+              }
+
+              return (
+                <div style={{ display: 'grid', gap: '1rem' }}>
+                  {rows.map((r, idx) => (
+                    <SpecRow key={`${r.label}-${idx}`} isDark={isDark} label={r.label} value={r.value} />
+                  ))}
+                </div>
+              );
+            })()}
           </div>
         </div>
       </div>

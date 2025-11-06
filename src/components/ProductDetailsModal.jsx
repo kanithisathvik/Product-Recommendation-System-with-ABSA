@@ -591,6 +591,44 @@ const ProductDetailsModal = ({ product, isOpen, onClose }) => {
           }}>
             <button
               onClick={() => {
+                try { localStorage.setItem('resetSearchOnHome', '1'); } catch {}
+                try { onClose(); } catch {}
+                navigate('/');
+              }}
+              style={{
+                flex: 1,
+                minWidth: '200px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.5rem',
+                padding: '1rem 2rem',
+                background: 'linear-gradient(135deg, rgba(34,197,94,0.18), rgba(16,185,129,0.18))',
+                border: '2px solid rgba(16,185,129,0.5)',
+                borderRadius: '0.75rem',
+                color: '#34d399',
+                fontSize: '1rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                transition: 'all 0.3s',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(16,185,129,0.35), rgba(5,150,105,0.35))';
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 10px 25px rgba(16,185,129,0.35)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(34,197,94,0.18), rgba(16,185,129,0.18))';
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
+            >
+              Exit & New Search
+            </button>
+            <button
+              onClick={() => {
                 // Close modal and navigate in-app to full details page
                 try { onClose(); } catch {}
                 navigate(`/product/${product.id}`, { state: { product } });

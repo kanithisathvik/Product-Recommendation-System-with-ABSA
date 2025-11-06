@@ -35,6 +35,7 @@ const ProductRecommendationApp = () => {
   const [prompt, setPrompt] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [resultsAnimToken, setResultsAnimToken] = useState(0);
+  const [searchAbort, setSearchAbort] = useState(null);
   const [animatedText, setAnimatedText] = useState('');
   const [showResults, setShowResults] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
@@ -85,43 +86,24 @@ const ProductRecommendationApp = () => {
     };
   });
 
+  // If coming back to home with a reset flag, clear search state for a fresh search
+  useEffect(() => {
+    try {
+      const shouldReset = localStorage.getItem('resetSearchOnHome');
+      if (shouldReset && location.pathname === '/') {
+        setPrompt('');
+        setProducts([]);
+        setFilteredProducts([]);
+        setShowResults(false);
+        setResultsAnimToken((t) => t + 1);
+        localStorage.removeItem('resetSearchOnHome');
+      }
+    } catch {}
+  }, [location.pathname]);
+
   const fullText = "AI-Powered Product Discovery";
   
-  // Mock product results for demonstration
-  const mockResults = [
-    {
-      id: 1,
-      name: "Nike Air Max 270",
-      price: "$129.99",
-      originalPrice: "$160.00",
-      rating: 4.8,
-      reviews: 2341,
-      image: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=300&h=300&fit=crop",
-      category: "Running Shoes",
-      match: 95
-    },
-    {
-      id: 2,
-      name: "Adidas Ultraboost 22",
-      price: "$139.99",
-      originalPrice: "$180.00",
-      rating: 4.7,
-      reviews: 1876,
-      image: "https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?w=300&h=300&fit=crop",
-      category: "Running Shoes",
-      match: 92
-    },
-    {
-      id: 3,
-      name: "Allbirds Tree Runner",
-      price: "$98.00",
-      rating: 4.6,
-      reviews: 892,
-      image: "https://images.unsplash.com/photo-1560769629-975ec94e6a86?w=300&h=300&fit=crop",
-      category: "Eco-Friendly",
-      match: 89
-    }
-  ];
+  // No local mock data; results are sourced strictly from API
 
   // Products will be loaded from API on search - no initial loading needed
   // Removed the useEffect that loaded from JSON file
@@ -484,6 +466,8 @@ const ProductRecommendationApp = () => {
     setShowHistory(false);
 
     try {
+      const controller = new AbortController();
+      setSearchAbort(controller);
       const response = await fetch('https://model-hddb.vercel.app/search', {
         method: 'POST',
         headers: {
@@ -491,7 +475,8 @@ const ProductRecommendationApp = () => {
         },
         body: JSON.stringify({
           text: prompt
-        })
+        }),
+        signal: controller.signal
       });
 
       if (!response.ok) {
@@ -505,12 +490,7 @@ const ProductRecommendationApp = () => {
         results : 
         (Array.isArray(data) ? data : (data.products || []));
 
-      const productsFromAPI = (productsFromAPIRaw || []).map((p, idx) => normalizeIncomingProduct(p, idx));
-      
-      // Fallback to mock results if API returns nothing
-      const finalProducts = (productsFromAPI && productsFromAPI.length > 0)
-        ? productsFromAPI
-        : mockResults.map((p, idx) => normalizeIncomingProduct(p, idx));
+  const finalProducts = (productsFromAPIRaw || []).map((p, idx) => normalizeIncomingProduct(p, idx));
 
   setProducts(finalProducts);
   setFilteredProducts(finalProducts);
@@ -526,7 +506,7 @@ const ProductRecommendationApp = () => {
       const aspectsFromQuery = extractAspectsFromPrompt(prompt);
       setExtractedAspects(aspectsFromQuery);
 
-      if (aspectsFromQuery.length > 0) {
+      if (aspectsFromQuery.length > 0 && finalProducts.length > 0) {
         await handleApplyFilter({
           aspects: aspectsFromQuery,
           category: 'all'
@@ -548,39 +528,17 @@ const ProductRecommendationApp = () => {
         });
       }
     } catch (error) {
-      console.error('[API] Error fetching products:', error);
-      // Graceful fallback to mock results when API fails
-      try {
-  const finalProducts = mockResults.map((p, idx) => normalizeIncomingProduct(p, idx));
-  setProducts(finalProducts);
-  setFilteredProducts(finalProducts);
-  setResultsAnimToken((t) => t + 1);
-  setShowResults(true);
-        updateStats({
-          totalSearches: statsData.totalSearches + 1,
-          productsAnalyzed: statsData.productsAnalyzed + finalProducts.length
-        });
-        localStorage.setItem('searchResults', JSON.stringify(finalProducts));
-
-        const aspectsFromQuery = extractAspectsFromPrompt(prompt);
-        setExtractedAspects(aspectsFromQuery);
-
-        if (aspectsFromQuery.length > 0) {
-          await handleApplyFilter({ aspects: aspectsFromQuery, category: 'all' }, finalProducts);
-        } else {
-          setIsLoading(false);
-        }
-
-        addToHistory(prompt, {
-          resultsCount: finalProducts.length,
-          aspectsDetected: aspectsFromQuery,
-          hasABSA: aspectsFromQuery.length > 0
-        });
-      } catch (fallbackError) {
-        console.error('[Search] Fallback also failed:', fallbackError);
-        setIsLoading(false);
-        alert(`Search failed. Please try again later.`);
+      if (error?.name === 'AbortError') {
+        console.warn('[Search] Request aborted by user');
+      } else {
+        console.error('[API] Error fetching products:', error);
+        alert('Search failed. Please try again later.');
       }
+      setIsLoading(false);
+      setShowResults(false);
+    }
+    finally {
+      setSearchAbort(null);
     }
   };
 
@@ -1888,13 +1846,37 @@ const ProductRecommendationApp = () => {
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
-                gap: '0.5rem',
+                gap: '0.75rem',
                 animation: 'fadeIn 0.2s ease-out'
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: '#9ca3af', fontSize: '0.95rem' }}>
                 <div className="spinner-modern"></div>
                 <span>Searching products…</span>
+              </div>
+              <div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    try { searchAbort?.abort(); } catch {}
+                    setIsLoading(false);
+                    setShowResults(false);
+                  }}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    background: 'linear-gradient(135deg, rgba(239,68,68,0.2), rgba(248,113,113,0.2))',
+                    border: '1px solid rgba(239,68,68,0.5)',
+                    borderRadius: '999px',
+                    color: '#ef4444',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={(e)=>{e.currentTarget.style.background='rgba(239,68,68,0.35)';}}
+                  onMouseLeave={(e)=>{e.currentTarget.style.background='linear-gradient(135deg, rgba(239,68,68,0.2), rgba(248,113,113,0.2))';}}
+                >
+                  Exit Search
+                </button>
               </div>
             </div>
           )}
