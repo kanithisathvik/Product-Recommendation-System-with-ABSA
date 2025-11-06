@@ -10,7 +10,7 @@ import ThemeToggle from './components/ThemeToggle';
 import Toast from './components/Toast';
 import { SentimentBadgeList } from './components/SentimentBadge';
 import ReviewAnalysisDetails from './components/ReviewAnalysisDetails';
-import RecentlyViewedPanel from './components/RecentlyViewedPanel';
+// import RecentlyViewedPanel from './components/RecentlyViewedPanel';
 import ProductTags from './components/ProductTags';
 import SmartRecommendations from './components/SmartRecommendations';
 import ProductSpecsExtended from './components/ProductSpecsExtended';
@@ -34,6 +34,7 @@ const ProductRecommendationApp = () => {
   const { isDark } = useTheme();
   const [prompt, setPrompt] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [resultsAnimToken, setResultsAnimToken] = useState(0);
   const [animatedText, setAnimatedText] = useState('');
   const [showResults, setShowResults] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
@@ -478,6 +479,8 @@ const ProductRecommendationApp = () => {
     }
 
     setIsLoading(true);
+    // Hide previous results to re-trigger animations on completion
+    setShowResults(false);
     setShowHistory(false);
 
     try {
@@ -509,8 +512,9 @@ const ProductRecommendationApp = () => {
         ? productsFromAPI
         : mockResults.map((p, idx) => normalizeIncomingProduct(p, idx));
 
-      setProducts(finalProducts);
-      setFilteredProducts(finalProducts);
+  setProducts(finalProducts);
+  setFilteredProducts(finalProducts);
+  setResultsAnimToken((t) => t + 1);
       
       updateStats({
         totalSearches: statsData.totalSearches + 1,
@@ -534,8 +538,8 @@ const ProductRecommendationApp = () => {
           hasABSA: true
         });
       } else {
-        setIsLoading(false);
-        setShowResults(true);
+  setIsLoading(false);
+  setShowResults(true);
         
         addToHistory(prompt, {
           resultsCount: finalProducts.length,
@@ -548,9 +552,10 @@ const ProductRecommendationApp = () => {
       // Graceful fallback to mock results when API fails
       try {
   const finalProducts = mockResults.map((p, idx) => normalizeIncomingProduct(p, idx));
-        setProducts(finalProducts);
-        setFilteredProducts(finalProducts);
-        setShowResults(true);
+  setProducts(finalProducts);
+  setFilteredProducts(finalProducts);
+  setResultsAnimToken((t) => t + 1);
+  setShowResults(true);
         updateStats({
           totalSearches: statsData.totalSearches + 1,
           productsAnalyzed: statsData.productsAnalyzed + finalProducts.length
@@ -1874,6 +1879,26 @@ const ProductRecommendationApp = () => {
             <div className="search-glow"></div>
           </div>
 
+          {/* Inline loading status while searching */}
+          {isLoading && (
+            <div
+              className="search-loading"
+              style={{
+                marginTop: '1rem',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '0.5rem',
+                animation: 'fadeIn 0.2s ease-out'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: '#9ca3af', fontSize: '0.95rem' }}>
+                <div className="spinner-modern"></div>
+                <span>Searching products…</span>
+              </div>
+            </div>
+          )}
+
           {/* Examples Section */}
           <div className="examples">
             <p>Try these examples (aspects will be auto-detected):</p>
@@ -1967,7 +1992,7 @@ const ProductRecommendationApp = () => {
         
         {/* Results Section */}
         {route === 'home' && showResults && (
-          <div className="results-section" style={{
+          <div key={resultsAnimToken} className="results-section" style={{
             animation: 'slideInUp 0.5s ease-out',
             marginTop: '3rem'
           }}>
@@ -2006,7 +2031,8 @@ const ProductRecommendationApp = () => {
                     fontSize: '1rem',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '0.5rem'
+                    gap: '0.5rem',
+                    animation: 'fade-up 0.5s ease-out'
                   }}>
                     <Sparkles size={16} style={{color: '#a855f7'}} />
                     Found {filteredProducts.length} products matching your requirements
@@ -2101,6 +2127,8 @@ const ProductRecommendationApp = () => {
                   position: 'relative',
                   overflow: 'hidden',
                   transition: 'box-shadow 0.3s',
+                  animation: 'fade-up 0.5s ease both',
+                  animationDelay: `${Math.min(index * 60, 600)}ms`,
                 }}>
                   {/* Top Right Controls - Comparison Checkbox & Favorite Heart */}
                   <div style={{
@@ -2725,8 +2753,7 @@ const ProductRecommendationApp = () => {
       {/* Rendering here exposes the FAB and full-screen comparator without altering other behaviors */}
       <ComparisonButton />
       <ProductComparisonModal />
-      {/* Recently Viewed: fixed bottom drawer (hidden when empty) */}
-      <RecentlyViewedPanel />
+  {/* Recently Viewed panel removed in favor of Navbar dropdown */}
 
       {/* Footer */}
       <footer className="footer">

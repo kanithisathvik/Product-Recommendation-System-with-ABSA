@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ShoppingBag, Heart } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 import { useFavorites } from '../context/FavoritesContext.jsx';
+import RecentlyViewedButton from './RecentlyViewedButton';
 
 const Navbar = () => {
   const navigate = useNavigate();
@@ -52,6 +53,9 @@ const Navbar = () => {
             </span>
           )}
         </button>
+
+        {/* Recently Viewed dropdown trigger */}
+        <RecentlyViewedButton />
 
         <div style={{ marginLeft: '0.5rem' }}>
           <ThemeToggle />
